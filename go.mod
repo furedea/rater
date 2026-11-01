@@ -1,4 +1,4 @@
-module github.com/furedea/template-go
+module github.com/furedea/rater
 
 go 1.27
 
