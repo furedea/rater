@@ -1,0 +1,31 @@
+version: "2"
+
+linters:
+  default: standard
+  enable:
+    - errorlint
+    - exhaustive
+    - gochecksumtype
+    - gocognit
+    - gocyclo
+    - gosec
+    - revive
+  settings:
+    gocognit:
+      min-complexity: 15
+    gocyclo:
+      min-complexity: 10
+    revive:
+      rules:
+        - name: argument-limit
+          arguments: [3]
+        - name: max-control-nesting
+          arguments: [2]
+        - name: file-length-limit
+          arguments:
+            - max: 500
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
