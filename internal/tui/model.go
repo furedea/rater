@@ -57,10 +57,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateNote(msg)
 		}
 		return m.updateBrowse(msg)
-	case tea.PasteMsg:
-		return m.pasteIntoNote(msg)
 	}
-	return m, nil
+	return m.forwardToNote(msg)
 }
 
 func (m Model) updateBrowse(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
@@ -112,7 +110,9 @@ func (m Model) updateNote(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m Model) pasteIntoNote(msg tea.PasteMsg) (tea.Model, tea.Cmd) {
+// forwardToNote hands non-key messages (terminal paste, the input's own clipboard
+// and blink results) to the note field while it is being edited.
+func (m Model) forwardToNote(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if m.mode != modeNote {
 		return m, nil
 	}

@@ -99,6 +99,7 @@ func TestLogRecoversFromTornFinalLine(t *testing.T) {
 	data, err := os.ReadFile(logPath(dir))
 	require.NoError(t, err)
 	assert.Equal(t, 2, countLines(data))
+	require.NoError(t, l.Close())
 	_, reread := openLog(t, dir)
 	assert.Len(t, reread, 2)
 }
@@ -151,11 +152,55 @@ func TestLogAppendRollsBackPartialWrite(t *testing.T) {
 	err := l.Append(task.Annotation{ItemID: "2", Action: task.ActionHold})
 	require.ErrorContains(t, err, "no space left")
 	require.NoError(t, l.Append(task.Annotation{ItemID: "3", Action: task.ActionHold}))
+	require.NoError(t, l.Close())
 
 	_, prior := openLog(t, dir)
 	require.Len(t, prior, 2)
 	assert.Equal(t, "1", prior[0].ItemID)
 	assert.Equal(t, "3", prior[1].ItemID)
+}
+
+// stuckTruncate partially writes, then fails both the write and the rollback.
+type stuckTruncate struct{ halfWriter }
+
+func (s *stuckTruncate) Truncate(int64) error { return errors.New("input/output error") }
+
+func TestLogStopsAppendingWhenRollbackFails(t *testing.T) {
+	dir := t.TempDir()
+	l, _ := openLog(t, dir)
+	l.file = &stuckTruncate{halfWriter{logFile: l.file}}
+
+	require.Error(t, l.Append(task.Annotation{ItemID: "1", Action: task.ActionHold}))
+	err := l.Append(task.Annotation{ItemID: "2", Action: task.ActionHold})
+
+	require.ErrorContains(t, err, "unusable")
+	data, readErr := os.ReadFile(logPath(dir))
+	require.NoError(t, readErr)
+	assert.NotContains(t, string(data), `"item":"2"`)
+}
+
+func TestOpenLogIsExclusive(t *testing.T) {
+	dir := t.TempDir()
+	first, _ := openLog(t, dir)
+
+	_, _, err := OpenLog(dir, mustAnnotator(t, "alice"))
+	require.ErrorIs(t, err, ErrLogInUse)
+
+	require.NoError(t, first.Close())
+	again, _, err := OpenLog(dir, mustAnnotator(t, "alice"))
+	require.NoError(t, err)
+	require.NoError(t, again.Close())
+}
+
+func TestOpenLogAllowsDifferentAnnotators(t *testing.T) {
+	dir := t.TempDir()
+	alice, _ := openLog(t, dir)
+
+	bob, _, err := OpenLog(dir, mustAnnotator(t, "bob"))
+
+	require.NoError(t, err)
+	require.NoError(t, bob.Close())
+	require.NoError(t, alice.Close())
 }
 
 func countLines(data []byte) int {

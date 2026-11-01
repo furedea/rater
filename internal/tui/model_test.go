@@ -65,6 +65,7 @@ func (h *harness) finish(t *testing.T) string {
 	h.tm.Send(keyEsc)
 	final, ok := h.tm.FinalModel(t, teatest.WithFinalTimeout(finalWait)).(tui.Model)
 	require.True(t, ok)
+	require.NoError(t, h.log.Close())
 	return final.View().Content
 }
 

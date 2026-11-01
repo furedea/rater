@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"time"
@@ -28,6 +27,7 @@ const (
 type Log struct {
 	file      logFile
 	size      int64 // length of the durable, newline-terminated prefix
+	broken    error // set when a rollback failed; the tail may be torn, so appends stop
 	annotator task.Annotator
 	now       func() time.Time
 }
@@ -49,32 +49,64 @@ type recordDoc struct {
 	At        time.Time `json:"at"`
 }
 
+// ErrLogInUse means another process already has this annotator's log open.
+var ErrLogInUse = errors.New("annotation log is in use by another process")
+
+const logDir = "annotations"
+
 // OpenLog opens <dir>/annotations/<annotator>.jsonl for appending and returns its prior records.
+// It holds an exclusive lock until Close, so two processes cannot append to one log.
 func OpenLog(dir string, who task.Annotator) (*Log, []task.Annotation, error) {
-	path := filepath.Join(dir, "annotations", who.String()+".jsonl")
-	if err := os.MkdirAll(filepath.Dir(path), dirPerm); err != nil {
-		return nil, nil, fmt.Errorf("create annotations dir: %w", err)
-	}
-	prior, err := recoverRecords(path)
+	root, err := os.OpenRoot(dir)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("open dir %s: %w", dir, err)
 	}
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND|os.O_CREATE, filePerm) //nolint:gosec // path is built from a validated Annotator
+	l, prior, err := openLogIn(root, who)
+	if closeErr := root.Close(); closeErr != nil {
+		err = errors.Join(err, fmt.Errorf("close dir %s: %w", dir, closeErr))
+	}
 	if err != nil {
-		return nil, nil, fmt.Errorf("open log %s: %w", path, err)
+		return nil, nil, errors.Join(err, closeIfOpen(l))
 	}
-	info, err := f.Stat()
+	return l, prior, nil
+}
+
+func openLogIn(root *os.Root, who task.Annotator) (*Log, []task.Annotation, error) {
+	if err := root.MkdirAll(logDir, dirPerm); err != nil {
+		return nil, nil, fmt.Errorf("create %s dir: %w", logDir, err)
+	}
+	name := filepath.Join(logDir, who.String()+".jsonl")
+	f, err := root.OpenFile(name, os.O_RDWR|os.O_APPEND|os.O_CREATE, filePerm)
 	if err != nil {
-		return nil, nil, errors.Join(fmt.Errorf("stat log %s: %w", path, err), f.Close())
+		return nil, nil, fmt.Errorf("open log %s: %w", name, err)
 	}
-	if err := syncDir(filepath.Dir(path)); err != nil {
-		return nil, nil, errors.Join(err, f.Close())
+	l := &Log{file: f, annotator: who, now: time.Now}
+	if err := lockFile(f); err != nil {
+		return l, nil, fmt.Errorf("lock log %s: %w", name, err)
 	}
-	return &Log{file: f, size: info.Size(), annotator: who, now: time.Now}, prior, nil
+	prior, size, err := recoverRecords(f)
+	if err != nil {
+		return l, nil, fmt.Errorf("recover log %s: %w", name, err)
+	}
+	l.size = size
+	if err := syncDir(root); err != nil {
+		return l, nil, err
+	}
+	return l, prior, nil
+}
+
+func closeIfOpen(l *Log) error {
+	if l == nil {
+		return nil
+	}
+	return l.Close()
 }
 
 // Append stamps the record with the annotator and the current time, then durably appends it.
 func (l *Log) Append(a task.Annotation) error {
+	if l.broken != nil {
+		return fmt.Errorf("log unusable after failed rollback: %w", l.broken)
+	}
 	a.Annotator = l.annotator.String()
 	a.At = l.now().UTC()
 	line, err := json.Marshal(toDoc(a))
@@ -96,6 +128,7 @@ func (l *Log) Append(a task.Annotation) error {
 // cannot glue a new record onto a torn line.
 func (l *Log) rollback(cause error) error {
 	if err := l.file.Truncate(l.size); err != nil {
+		l.broken = err
 		return errors.Join(cause, fmt.Errorf("roll back partial write: %w", err))
 	}
 	return cause
@@ -109,21 +142,21 @@ func (l *Log) Close() error {
 	return nil
 }
 
-func recoverRecords(path string) ([]task.Annotation, error) {
-	data, err := os.ReadFile(path) //nolint:gosec // path is built from a validated Annotator
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil, nil
-	}
+// recoverRecords reads the log, drops a torn final line, and returns the records
+// with the length of the durable prefix.
+func recoverRecords(f *os.File) ([]task.Annotation, int64, error) {
+	data, err := io.ReadAll(f)
 	if err != nil {
-		return nil, fmt.Errorf("read log %s: %w", path, err)
+		return nil, 0, fmt.Errorf("read: %w", err)
 	}
 	complete := completeLines(data)
 	if len(complete) != len(data) {
-		if err := os.Truncate(path, int64(len(complete))); err != nil {
-			return nil, fmt.Errorf("drop torn tail of %s: %w", path, err)
+		if err := f.Truncate(int64(len(complete))); err != nil {
+			return nil, 0, fmt.Errorf("drop torn tail: %w", err)
 		}
 	}
-	return parseRecords(complete)
+	records, err := parseRecords(complete)
+	return records, int64(len(complete)), err
 }
 
 func completeLines(data []byte) []byte {
@@ -170,15 +203,15 @@ func toDoc(a task.Annotation) recordDoc {
 	}
 }
 
-func syncDir(dir string) error {
-	d, err := os.Open(dir) //nolint:gosec // directory under the task dir
+func syncDir(root *os.Root) error {
+	d, err := root.Open(logDir)
 	if err != nil {
-		return fmt.Errorf("open dir %s: %w", dir, err)
+		return fmt.Errorf("open dir %s: %w", logDir, err)
 	}
 	syncErr := d.Sync()
 	closeErr := d.Close()
 	if syncErr != nil {
-		return fmt.Errorf("sync dir %s: %w", dir, syncErr)
+		return fmt.Errorf("sync dir %s: %w", logDir, syncErr)
 	}
 	return closeErr
 }
