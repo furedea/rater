@@ -1,0 +1,9 @@
+name: guideline-criteria
+layout: stacked
+fields:
+  - name: sentence
+    title: Guideline sentence
+labels:
+  - {key: y, name: passes}
+  - {key: "n", name: fails}
+  - {key: "?", name: unsure}

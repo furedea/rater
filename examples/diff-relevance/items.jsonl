@@ -1,0 +1,3 @@
+{"id":"d-001","repo":"example/api","pr":57,"stratum":"error-handling","guideline":"Wrap errors with the operation and subject.","diff":"@@ -10,3 +10,3 @@\n-\treturn err\n+\treturn fmt.Errorf(\"read config %s: %w\", path, err)"}
+{"id":"d-002","repo":"example/api","pr":58,"stratum":"error-handling","guideline":"Wrap errors with the operation and subject.","diff":"@@ -20,2 +20,2 @@\n-\tlog.Println(\"start\")\n+\tlog.Println(\"starting server\")"}
+{"id":"d-003","repo":"example/web","pr":203,"stratum":"naming","guideline":"Name one concept with one word.","diff":"@@ -5,2 +5,2 @@\n-func fetchUser() {}\n+func getUser() {}"}

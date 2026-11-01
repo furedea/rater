@@ -107,6 +107,18 @@ func writeTaskDir(t *testing.T, items string) string {
 	return dir
 }
 
+func TestShippedExamplesLoad(t *testing.T) {
+	for _, name := range []string{"review-comment-pairs", "guideline-criteria", "diff-relevance"} {
+		t.Run(name, func(t *testing.T) {
+			ws, err := store.LoadWorkspace(filepath.Join("..", "..", "examples", name))
+
+			require.NoError(t, err)
+			assert.Equal(t, name, ws.Task.Name())
+			assert.NotEmpty(t, ws.Items)
+		})
+	}
+}
+
 func TestLoadWorkspace(t *testing.T) {
 	t.Run("valid", func(t *testing.T) {
 		dir := writeTaskDir(t, `{"id":"1","a":"x","b":"y"}`+"\n")

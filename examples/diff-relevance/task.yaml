@@ -1,0 +1,13 @@
+name: diff-relevance
+layout: stacked
+header: [repo, pr, stratum]
+fields:
+  - name: guideline
+    title: Guideline
+  - name: diff
+    title: Diff
+labels:
+  - {key: c, name: relevant-conforming}
+  - {key: v, name: relevant-violating}
+  - {key: u, name: unrelated}
+  - {key: "?", name: unsure}

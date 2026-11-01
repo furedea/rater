@@ -1,0 +1,12 @@
+name: review-comment-pairs
+layout: stacked
+header: [repo, pr]
+fields:
+  - name: comment_a
+    title: Review comment A
+  - name: comment_b
+    title: Review comment B
+labels:
+  - {key: s, name: same}
+  - {key: p, name: partial}
+  - {key: d, name: distinct}
