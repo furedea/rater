@@ -1,6 +1,7 @@
 package store
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -121,6 +122,40 @@ func TestOpenLogRejectsCorruptCompleteLine(t *testing.T) {
 			assert.ErrorContains(t, err, "line 1")
 		})
 	}
+}
+
+// halfWriter writes half of the first line it is given, then fails once.
+type halfWriter struct {
+	logFile
+	failed bool
+}
+
+func (h *halfWriter) Write(p []byte) (int, error) {
+	if h.failed {
+		return h.logFile.Write(p)
+	}
+	h.failed = true
+	n, err := h.logFile.Write(p[:len(p)/2])
+	if err != nil {
+		return n, err
+	}
+	return n, errors.New("no space left on device")
+}
+
+func TestLogAppendRollsBackPartialWrite(t *testing.T) {
+	dir := t.TempDir()
+	l, _ := openLog(t, dir)
+	require.NoError(t, l.Append(task.Annotation{ItemID: "1", Action: task.ActionHold}))
+	l.file = &halfWriter{logFile: l.file}
+
+	err := l.Append(task.Annotation{ItemID: "2", Action: task.ActionHold})
+	require.ErrorContains(t, err, "no space left")
+	require.NoError(t, l.Append(task.Annotation{ItemID: "3", Action: task.ActionHold}))
+
+	_, prior := openLog(t, dir)
+	require.Len(t, prior, 2)
+	assert.Equal(t, "1", prior[0].ItemID)
+	assert.Equal(t, "3", prior[1].ItemID)
 }
 
 func countLines(data []byte) int {

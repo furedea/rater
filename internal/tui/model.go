@@ -57,6 +57,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateNote(msg)
 		}
 		return m.updateBrowse(msg)
+	case tea.PasteMsg:
+		return m.pasteIntoNote(msg)
 	}
 	return m, nil
 }
@@ -104,6 +106,15 @@ func (m Model) updateNote(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.endNote(), nil
 	case "esc":
 		return m.endNote(), nil
+	}
+	var cmd tea.Cmd
+	m.input, cmd = m.input.Update(msg)
+	return m, cmd
+}
+
+func (m Model) pasteIntoNote(msg tea.PasteMsg) (tea.Model, tea.Cmd) {
+	if m.mode != modeNote {
+		return m, nil
 	}
 	var cmd tea.Cmd
 	m.input, cmd = m.input.Update(msg)

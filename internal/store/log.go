@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -25,9 +26,18 @@ const (
 // newline-terminated line and then fsynced. A crash can therefore leave at
 // most one torn final line without its newline; OpenLog drops that tail.
 type Log struct {
-	file      *os.File
+	file      logFile
+	size      int64 // length of the durable, newline-terminated prefix
 	annotator task.Annotator
 	now       func() time.Time
+}
+
+// logFile is the part of *os.File that Log needs; tests substitute a failing one.
+type logFile interface {
+	io.Writer
+	Sync() error
+	Truncate(size int64) error
+	Close() error
 }
 
 type recordDoc struct {
@@ -53,10 +63,14 @@ func OpenLog(dir string, who task.Annotator) (*Log, []task.Annotation, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("open log %s: %w", path, err)
 	}
+	info, err := f.Stat()
+	if err != nil {
+		return nil, nil, errors.Join(fmt.Errorf("stat log %s: %w", path, err), f.Close())
+	}
 	if err := syncDir(filepath.Dir(path)); err != nil {
 		return nil, nil, errors.Join(err, f.Close())
 	}
-	return &Log{file: f, annotator: who, now: time.Now}, prior, nil
+	return &Log{file: f, size: info.Size(), annotator: who, now: time.Now}, prior, nil
 }
 
 // Append stamps the record with the annotator and the current time, then durably appends it.
@@ -67,13 +81,24 @@ func (l *Log) Append(a task.Annotation) error {
 	if err != nil {
 		return fmt.Errorf("encode record: %w", err)
 	}
-	if _, err := l.file.Write(append(line, '\n')); err != nil {
-		return fmt.Errorf("write record: %w", err)
+	line = append(line, '\n')
+	if _, err := l.file.Write(line); err != nil {
+		return l.rollback(fmt.Errorf("write record: %w", err))
 	}
 	if err := l.file.Sync(); err != nil {
-		return fmt.Errorf("sync log: %w", err)
+		return l.rollback(fmt.Errorf("sync log: %w", err))
 	}
+	l.size += int64(len(line))
 	return nil
+}
+
+// rollback cuts a failed or partial write back to the last good size, so a retry
+// cannot glue a new record onto a torn line.
+func (l *Log) rollback(cause error) error {
+	if err := l.file.Truncate(l.size); err != nil {
+		return errors.Join(cause, fmt.Errorf("roll back partial write: %w", err))
+	}
+	return cause
 }
 
 // Close releases the file.

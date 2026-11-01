@@ -128,6 +128,17 @@ func TestNoteEntry(t *testing.T) {
 	assert.Equal(t, "odd pair", h.replay(t).State("1").Note)
 }
 
+func TestNoteAcceptsPaste(t *testing.T) {
+	h := start(t)
+
+	h.tm.Send(keyNote)
+	h.tm.Send(tea.PasteMsg{Content: "pasted text"})
+	h.tm.Send(keyEnter)
+	h.finish(t)
+
+	assert.Equal(t, "pasted text", h.replay(t).State("1").Note)
+}
+
 func TestNoteEscapeCancels(t *testing.T) {
 	h := start(t)
 
