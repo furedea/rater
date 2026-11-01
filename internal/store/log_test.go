@@ -1,0 +1,134 @@
+package store
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/furedea/rater/internal/task"
+)
+
+func mustAnnotator(t *testing.T, name string) task.Annotator {
+	t.Helper()
+	a, err := task.NewAnnotator(name)
+	require.NoError(t, err)
+	return a
+}
+
+func logPath(dir string) string { return filepath.Join(dir, "annotations", "alice.jsonl") }
+
+func openLog(t *testing.T, dir string) (*Log, []task.Annotation) {
+	t.Helper()
+	l, prior, err := OpenLog(dir, mustAnnotator(t, "alice"))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = l.Close() })
+	return l, prior
+}
+
+func TestLogAppendWritesFullStampedLines(t *testing.T) {
+	dir := t.TempDir()
+	l, prior := openLog(t, dir)
+	assert.Empty(t, prior)
+	l.now = func() time.Time { return time.Date(2026, 11, 2, 3, 4, 5, 0, time.UTC) }
+
+	require.NoError(t, l.Append(task.Annotation{ItemID: "1", Action: task.ActionLabel, Label: "same", Note: "n"}))
+	require.NoError(t, l.Append(task.Annotation{ItemID: "1", Action: task.ActionUndo}))
+
+	got, err := os.ReadFile(logPath(dir))
+	require.NoError(t, err)
+	want := `{"item":"1","annotator":"alice","action":"label","label":"same","note":"n","at":"2026-11-02T03:04:05Z"}` + "\n" +
+		`{"item":"1","annotator":"alice","action":"undo","at":"2026-11-02T03:04:05Z"}` + "\n"
+	assert.Equal(t, want, string(got))
+}
+
+func TestLogResumeReturnsPriorRecordsAndAppends(t *testing.T) {
+	dir := t.TempDir()
+	first, _ := openLog(t, dir)
+	require.NoError(t, first.Append(task.Annotation{ItemID: "1", Action: task.ActionLabel, Label: "same"}))
+	require.NoError(t, first.Append(task.Annotation{ItemID: "2", Action: task.ActionHold}))
+	require.NoError(t, first.Close())
+
+	second, prior := openLog(t, dir)
+	require.NoError(t, second.Append(task.Annotation{ItemID: "2", Action: task.ActionUndo}))
+
+	require.Len(t, prior, 2)
+	assert.Equal(t, task.ActionLabel, prior[0].Action)
+	assert.Equal(t, "same", prior[0].Label)
+	assert.Equal(t, "alice", prior[0].Annotator)
+	assert.Equal(t, task.ActionHold, prior[1].Action)
+
+	again, err := os.ReadFile(logPath(dir))
+	require.NoError(t, err)
+	assert.Equal(t, 3, countLines(again))
+}
+
+func TestLogResumeThroughSessionHonoursUndo(t *testing.T) {
+	dir := t.TempDir()
+	first, _ := openLog(t, dir)
+	for _, a := range []task.Annotation{
+		{ItemID: "1", Action: task.ActionLabel, Label: "same"},
+		{ItemID: "2", Action: task.ActionLabel, Label: "same"},
+		{ItemID: "2", Action: task.ActionUndo},
+	} {
+		require.NoError(t, first.Append(a))
+	}
+	require.NoError(t, first.Close())
+
+	_, prior := openLog(t, dir)
+	h := task.Replay(prior)
+
+	assert.Equal(t, task.StatusLabeled, h.State("1").Status)
+	assert.Equal(t, task.StatusPending, h.State("2").Status)
+}
+
+func TestLogRecoversFromTornFinalLine(t *testing.T) {
+	dir := t.TempDir()
+	full := `{"item":"1","annotator":"alice","action":"hold","at":"2026-11-02T00:00:00Z"}` + "\n"
+	require.NoError(t, os.MkdirAll(filepath.Dir(logPath(dir)), 0o750))
+	require.NoError(t, os.WriteFile(logPath(dir), []byte(full+`{"item":"2","annot`), 0o600))
+
+	l, prior := openLog(t, dir)
+	require.NoError(t, l.Append(task.Annotation{ItemID: "2", Action: task.ActionHold}))
+
+	assert.Len(t, prior, 1)
+	data, err := os.ReadFile(logPath(dir))
+	require.NoError(t, err)
+	assert.Equal(t, 2, countLines(data))
+	_, reread := openLog(t, dir)
+	assert.Len(t, reread, 2)
+}
+
+func TestOpenLogRejectsCorruptCompleteLine(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+	}{
+		{"not json", "garbage\n"},
+		{"unknown action", `{"item":"1","action":"explode"}` + "\n"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			require.NoError(t, os.MkdirAll(filepath.Dir(logPath(dir)), 0o750))
+			require.NoError(t, os.WriteFile(logPath(dir), []byte(tt.content), 0o600))
+
+			_, _, err := OpenLog(dir, mustAnnotator(t, "alice"))
+
+			assert.ErrorContains(t, err, "line 1")
+		})
+	}
+}
+
+func countLines(data []byte) int {
+	n := 0
+	for _, b := range data {
+		if b == '\n' {
+			n++
+		}
+	}
+	return n
+}
