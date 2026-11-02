@@ -7,8 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/furedea/rater/internal/task"
@@ -69,9 +71,25 @@ func OpenLog(dir string, who task.Annotator) (*Log, []task.Annotation, error) {
 	return openLogAt(dir, annotationsDir, who)
 }
 
+// ErrOtherAdjudicator means the task already has another adjudicator's log.
+// A task has one adjudicator, because gold.jsonl is rebuilt from one log.
+var ErrOtherAdjudicator = errors.New("task already has another adjudicator")
+
 // OpenAdjudicationLog opens <dir>/adjudications/<adjudicator>.jsonl the way
 // OpenLog opens an annotation log; its records are the adjudicator's decisions.
+// It refuses, before writing anything, when adjudications/ holds a log of
+// anyone else; the same adjudicator can always resume.
 func OpenAdjudicationLog(dir string, who task.Annotator) (*Log, []task.Annotation, error) {
+	others, err := inRoot(dir, func(fsys fs.FS) ([]string, error) {
+		return otherLogOwners(fsys, adjudicationsDir, who)
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(others) > 0 {
+		return nil, nil, fmt.Errorf("%w: %s (move %s/<name>.jsonl aside to hand over)",
+			ErrOtherAdjudicator, strings.Join(others, ", "), adjudicationsDir)
+	}
 	return openLogAt(dir, adjudicationsDir, who)
 }
 
