@@ -62,6 +62,8 @@ func TestBodyWrapsLongDiffLinesAndKeepsOffsets(t *testing.T) {
 	for _, l := range lines {
 		assert.LessOrEqual(t, ansi.StringWidth(l), width)
 	}
+	continuation := strings.Split(body.Content(), "\n")[3]
+	assert.NotEqual(t, ansi.Strip(continuation), continuation, "a wrapped line keeps its colour on every row")
 	first, _ := body.Hunks().Next(0)
 	second, ok := body.Hunks().Next(first)
 	require.True(t, ok)
@@ -83,17 +85,44 @@ func TestBodyHighlightsCode(t *testing.T) {
 			body, lines := newBody(t, []task.Field{tt.field}, tt.values)
 
 			assert.Equal(t, append([]string{"Code"}, strings.Split(src, "\n")...), lines)
-			assert.Contains(t, body.Content(), "\x1b[", "code carries colour")
+			assert.Equal(t, goKeywordColour, keywordColour(t, body), "package is highlighted as a Go keyword")
 		})
 	}
 }
 
-func TestBodyCodeWithUnknownItemLanguageFallsBack(t *testing.T) {
+// goKeywordColour is monokai's KeywordNamespace colour (#f92672), which the Go
+// lexer gives "package", as a 24-bit SGR sequence.
+const goKeywordColour = "\x1b[38;2;249;38;114m"
+
+// keywordColour returns the SGR sequence that opens the first code line,
+// where the sources under test start with the keyword "package".
+func keywordColour(t *testing.T, body render.Body) string {
+	t.Helper()
+	line := strings.Split(body.Content(), "\n")[1]
+	end := strings.Index(line, "package")
+	require.Positive(t, end, "code line starts with a style sequence")
+	return line[:end]
+}
+
+func TestBodyCodeLanguagePrecedence(t *testing.T) {
+	src := "package main"
 	field := task.Field{Name: "c", Title: "Code", Render: task.RenderCode, Language: "go", LanguageField: "lang"}
+	tests := []struct {
+		name     string
+		itemLang string
+		isGo     bool
+	}{
+		{"item language wins over the task's", "python", false},
+		{"unknown item language falls back to the task's", "nosuchlang", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body, lines := newBody(t, []task.Field{field}, map[string]string{"c": src, "lang": tt.itemLang})
 
-	_, lines := newBody(t, []task.Field{field}, map[string]string{"c": "x := 1", "lang": "nosuchlang"})
-
-	assert.Equal(t, []string{"Code", "x := 1"}, lines)
+			assert.Equal(t, []string{"Code", src}, lines)
+			assert.Equal(t, tt.isGo, strings.HasPrefix(strings.Split(body.Content(), "\n")[1], goKeywordColour))
+		})
+	}
 }
 
 func TestBodyRendersMarkdown(t *testing.T) {

@@ -193,6 +193,8 @@ func (m Model) refresh() Model {
 	}
 	m.body.SetWidth(want.width)
 	m.body.SetHeight(m.bodyHeight())
+	// A taller body lowers the largest offset; re-clamp so it stays filled.
+	m.body.SetYOffset(m.body.YOffset())
 	return m
 }
 

@@ -234,6 +234,19 @@ func TestScrollKeysMoveTheBody(t *testing.T) {
 	})
 }
 
+func TestGrowingTheTerminalKeepsTheBodyFilled(t *testing.T) {
+	h := startLongBody(t)
+
+	for range 15 {
+		h.tm.Send(keyPgDn)
+	}
+	h.tm.Send(tea.WindowSizeMsg{Width: 100, Height: 60})
+	screen := h.finish(t)
+
+	assert.Contains(t, screen, "line 60")
+	assert.Contains(t, screen, "line 30", "the taller body shows earlier lines instead of blank rows")
+}
+
 func TestScrollingDoesNotLabel(t *testing.T) {
 	h := startLongBody(t)
 

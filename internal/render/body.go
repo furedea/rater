@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
-	"github.com/charmbracelet/x/ansi"
 
 	"github.com/furedea/rater/internal/task"
 )
@@ -105,8 +104,10 @@ func styleDiffLine(l DiffLine) string {
 	return l.Text
 }
 
-// addBlock wraps s to the width and appends its lines.
+// addBlock wraps s to the width and appends its lines. lipgloss.Wrap reopens
+// the active style on each wrapped row, so a row scrolled to on its own keeps
+// its colour.
 func (w *bodyWriter) addBlock(s string) {
 	s = strings.ReplaceAll(s, "\t", strings.Repeat(" ", tabWidth))
-	w.lines = append(w.lines, strings.Split(ansi.Wrap(s, w.width, ""), "\n")...)
+	w.lines = append(w.lines, strings.Split(lipgloss.Wrap(s, w.width, ""), "\n")...)
 }
