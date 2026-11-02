@@ -9,7 +9,7 @@ import (
 	"github.com/furedea/rater/internal/task"
 )
 
-func newChecklistSession(t *testing.T, prior []task.Annotation, ids ...string) (*task.Session, *fakeRecorder) {
+func newChecklistWorkspace(t *testing.T, ids ...string) task.Workspace {
 	t.Helper()
 	tk, err := task.NewTask(checklistSpec())
 	require.NoError(t, err)
@@ -19,8 +19,13 @@ func newChecklistSession(t *testing.T, prior []task.Annotation, ids ...string) (
 	}
 	ws, err := task.NewWorkspace(tk, items)
 	require.NoError(t, err)
+	return ws
+}
+
+func newChecklistSession(t *testing.T, prior []task.Annotation, ids ...string) (*task.Session, *fakeRecorder) {
+	t.Helper()
 	rec := &fakeRecorder{}
-	s, err := task.NewSession(ws, prior, rec)
+	s, err := task.NewSession(newChecklistWorkspace(t, ids...), prior, rec)
 	require.NoError(t, err)
 	return s, rec
 }
@@ -53,6 +58,23 @@ func TestChecklistCompletingAllCriteriaAdvances(t *testing.T) {
 	assert.Equal(t, 1, s.Labeled())
 	s.Prev()
 	assert.Equal(t, task.StatusLabeled, s.CurrentState().Status)
+}
+
+func TestChecklistUnsureAnswerCountsAsAnswered(t *testing.T) {
+	s, rec := newChecklistSession(t, nil, "1", "2")
+
+	for _, key := range "yy?" {
+		require.NoError(t, s.Choose(key))
+	}
+
+	assert.Equal(t, "2", s.Current().ID, "an unsure answer completes the checklist")
+	resumed, err := task.NewSession(newChecklistWorkspace(t, "1", "2"), rec.records, &fakeRecorder{})
+	require.NoError(t, err)
+	assert.Equal(t, "2", resumed.Current().ID, "resume skips the completed item")
+	resumed.Prev()
+	assert.Equal(t, task.StatusLabeled, resumed.CurrentState().Status)
+	cl := checklistOf(t, resumed.Task())
+	assert.Equal(t, task.VerdictUndecided, cl.Verdict(resumed.CurrentState().Answers))
 }
 
 func TestChecklistFocusSkipsAnsweredCriteria(t *testing.T) {
