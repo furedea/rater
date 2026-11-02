@@ -58,12 +58,13 @@ With Go 1.27 or later:
 go install github.com/furedea/rater/cmd/rater@latest
 ```
 
-Or download a release binary for macOS or Linux (amd64 or arm64) from
-[Releases](https://github.com/furedea/rater/releases), check it against `checksums.txt`, and put
-`rater` on your `PATH`:
+Or download a release archive for macOS or Linux (amd64 or arm64) from
+[Releases](https://github.com/furedea/rater/releases), check it, and put `rater` on your `PATH`.
+Each release carries `checksums.txt` and a build provenance attestation for every archive:
 
 ```
 sha256sum --check --ignore-missing checksums.txt   # macOS: shasum -a 256 --check --ignore-missing checksums.txt
+gh attestation verify rater_<version>_<os>_<arch>.tar.gz --repo furedea/rater
 tar -xzf rater_<version>_<os>_<arch>.tar.gz
 ```
 
@@ -439,6 +440,31 @@ records about items no longer assigned stay in the log and still count in `agree
   enforced.
 - There is no user management beyond the keys file: anyone with a registered key can annotate as
   that annotator, and anyone with access to the task directory can read every log.
+
+## Releasing
+
+Releases are managed by Release Please; nobody tags by hand. Each push to `main` updates a release
+PR from the Conventional Commits since the last release. Merging it updates `CHANGELOG.md`,
+`.release-please-manifest.json`, and `cmd/rater/version.txt` (the version `rater --version`
+reports and the Nix package uses), tags the merge commit `vX.Y.Z`, and creates a draft GitHub
+Release. The `Release Please` workflow then starts the `Release Artifacts` workflow on that tag,
+which runs the tests, builds the four archives and `checksums.txt`, smoke-tests the Linux amd64
+archive, attests their provenance, uploads them, and publishes the release. If any step fails, the
+release stays a draft.
+
+To resume a draft release whose artifact run failed, start the same workflow on the tag so the
+attestation records the tagged commit:
+
+```
+tag=v0.1.0
+gh workflow run release_artifacts.yml --ref "$tag" -f tag_name="$tag"
+```
+
+The workflow fails before building when it is started from any other ref or when the release is
+already published. A published release is never rebuilt in place; ship a fix as a new release.
+
+The `Release Please` workflow needs a `RELEASE_PLEASE_TOKEN` repository secret: a token that may
+write contents and pull requests, so that the release PR it opens runs CI.
 
 ## License
 
