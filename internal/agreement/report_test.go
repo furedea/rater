@@ -59,6 +59,21 @@ func hold(id string) task.Annotation { return task.Annotation{ItemID: id, Action
 
 func undo(id string) task.Annotation { return task.Annotation{ItemID: id, Action: task.ActionUndo} }
 
+func newReport(t *testing.T, ws task.Workspace, annotators []agreement.Annotator) agreement.Report {
+	t.Helper()
+	r, err := agreement.NewReport(ws, annotators)
+	require.NoError(t, err)
+	return r
+}
+
+func TestReportNeedsTwoAnnotators(t *testing.T) {
+	ws := workspace(t, singleChoiceSpec(), "1")
+
+	_, err := agreement.NewReport(ws, []agreement.Annotator{annotator(ws, "alice", label("1", "same"))})
+
+	assert.ErrorIs(t, err, agreement.ErrTooFewAnnotators)
+}
+
 func TestReportComparesLatestEffectiveLabels(t *testing.T) {
 	ws := workspace(t, singleChoiceSpec(), "1", "2", "3", "4")
 	alice := annotator(ws, "alice", label("1", "same"), label("2", "same"), label("3", "distinct"), hold("4"))
@@ -68,7 +83,7 @@ func TestReportComparesLatestEffectiveLabels(t *testing.T) {
 		label("4", "same"),
 	)
 
-	r := agreement.NewReport(ws, []agreement.Annotator{alice, bob})
+	r := newReport(t, ws, []agreement.Annotator{alice, bob})
 
 	assert.Equal(t, "pairs", r.Task)
 	assert.Equal(t, 4, r.Items)
@@ -96,7 +111,7 @@ func TestReportWithThreeAnnotatorsHasNoPair(t *testing.T) {
 	bob := annotator(ws, "bob", label("1", "same"), label("2", "distinct"))
 	carol := annotator(ws, "carol", label("1", "same"))
 
-	r := agreement.NewReport(ws, []agreement.Annotator{alice, bob, carol})
+	r := newReport(t, ws, []agreement.Annotator{alice, bob, carol})
 
 	assert.Nil(t, r.Overall.Pair, "kappa and the confusion matrix are for two annotators")
 	assert.Equal(t, 2, r.Overall.Alpha.Units)
@@ -117,7 +132,7 @@ func TestReportMeasuresEachCriterionAndTheDerivedVerdict(t *testing.T) {
 		answer("3", "concrete", "yes"),
 	)
 
-	r := agreement.NewReport(ws, []agreement.Annotator{alice, bob})
+	r := newReport(t, ws, []agreement.Annotator{alice, bob})
 
 	assert.Equal(t, []agreement.Coverage{
 		{Name: "alice", Labeled: 3},

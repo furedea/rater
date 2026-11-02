@@ -43,6 +43,31 @@ func TestReadLogsReturnsEveryAnnotatorSortedByName(t *testing.T) {
 	assert.Equal(t, "same", logs[1].Records[0].Label)
 }
 
+func TestReadLogReadsOneAnnotator(t *testing.T) {
+	dir := t.TempDir()
+	writeLog(t, annotationsFile(dir, "bob.jsonl"), bobLine)
+	writeLog(t, annotationsFile(dir, "carol.jsonl"), "{corrupt}\n")
+
+	l, err := store.ReadLog(dir, mustAnnotator(t, "bob"))
+
+	require.NoError(t, err)
+	assert.Equal(t, "bob", l.Annotator.String())
+	assert.Len(t, l.Records, 1)
+}
+
+func TestReadLogOfAnAnnotatorWithoutALogFails(t *testing.T) {
+	_, err := store.ReadLog(t.TempDir(), mustAnnotator(t, "dave"))
+
+	assert.ErrorIs(t, err, store.ErrNoLog)
+}
+
+func mustAnnotator(t *testing.T, name string) task.Annotator {
+	t.Helper()
+	a, err := task.NewAnnotator(name)
+	require.NoError(t, err)
+	return a
+}
+
 func TestReadLogsWithoutAnnotationsIsEmpty(t *testing.T) {
 	logs, err := store.ReadLogs(t.TempDir())
 

@@ -1,6 +1,9 @@
 package agreement
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/furedea/rater/internal/task"
 )
 
@@ -40,23 +43,36 @@ type Measure struct {
 	Pair *Confusion
 }
 
+// ErrTooFewAnnotators means agreement was asked of fewer than two annotators.
+var ErrTooFewAnnotators = errors.New("agreement needs at least two annotators")
+
+const pair = 2
+
 // NewReport compares the annotators' latest effective states on every item.
-func NewReport(ws task.Workspace, annotators []Annotator) Report {
+func NewReport(ws task.Workspace, annotators []Annotator) (Report, error) {
+	if len(annotators) < pair {
+		return Report{}, fmt.Errorf("%w, got %d", ErrTooFewAnnotators, len(annotators))
+	}
 	r := Report{Task: ws.Task.Name(), Items: len(ws.Items)}
 	for _, a := range annotators {
 		r.Annotators = append(r.Annotators, coverage(ws, a))
 	}
 	compared := comparison{items: ws.Items, annotators: annotators}
+	var err error
 	switch scheme := ws.Task.Scheme().(type) {
 	case task.SingleChoice:
-		r.Overall = compared.measure("label", func(s task.State) string { return s.Label })
+		r.Overall, err = compared.measure("label", func(s task.State) string { return s.Label })
 	case task.Checklist:
-		for _, c := range scheme.Criteria() {
-			r.Criteria = append(r.Criteria, compared.measure(c.Name, func(s task.State) string { return s.Answers[c.Name] }))
+		r.Criteria, err = compared.criteria(scheme)
+		if err != nil {
+			return Report{}, err
 		}
-		r.Overall = compared.measure("verdict", func(s task.State) string { return scheme.Verdict(s.Answers).String() })
+		r.Overall, err = compared.measure("verdict", func(s task.State) string { return scheme.Verdict(s.Answers).String() })
 	}
-	return r
+	if err != nil {
+		return Report{}, err
+	}
+	return r, nil
 }
 
 func coverage(ws task.Workspace, a Annotator) Coverage {
@@ -80,8 +96,20 @@ type comparison struct {
 	annotators []Annotator
 }
 
+func (c comparison) criteria(scheme task.Checklist) ([]Measure, error) {
+	var measures []Measure
+	for _, cr := range scheme.Criteria() {
+		m, err := c.measure(cr.Name, func(s task.State) string { return s.Answers[cr.Name] })
+		if err != nil {
+			return nil, err
+		}
+		measures = append(measures, m)
+	}
+	return measures, nil
+}
+
 // measure compares the value that valueOf reads from each labeled state.
-func (c comparison) measure(name string, valueOf func(task.State) string) Measure {
+func (c comparison) measure(name string, valueOf func(task.State) string) (Measure, error) {
 	units := make([][]Value, 0, len(c.items))
 	for _, it := range c.items {
 		unit := make([]Value, 0, len(c.annotators))
@@ -90,14 +118,20 @@ func (c comparison) measure(name string, valueOf func(task.State) string) Measur
 		}
 		units = append(units, unit)
 	}
-	d := Data{raters: len(c.annotators), units: units}
-	m := Measure{Name: name, Alpha: Alpha(d)}
-	if len(c.annotators) != 2 {
-		return m
+	d, err := NewData(len(c.annotators), units)
+	if err != nil {
+		return Measure{}, fmt.Errorf("measure %s: %w", name, err)
 	}
-	pair := tabulate(d)
-	m.Pair = &pair
-	return m
+	m := Measure{Name: name, Alpha: Alpha(d)}
+	if len(c.annotators) != pair {
+		return m, nil
+	}
+	confusion, err := NewConfusion(d)
+	if err != nil {
+		return Measure{}, fmt.Errorf("measure %s: %w", name, err)
+	}
+	m.Pair = &confusion
+	return m, nil
 }
 
 func labeledValue(s task.State, valueOf func(task.State) string) Value {

@@ -95,11 +95,7 @@ func runAgree(args []string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	logs, err := store.ReadLogs(opts.taskDir)
-	if err != nil {
-		return err
-	}
-	logs, err = selectLogs(logs, opts.annotators)
+	logs, err := readLogs(opts.taskDir, opts.annotators)
 	if err != nil {
 		return err
 	}
@@ -107,28 +103,26 @@ func runAgree(args []string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	return writeReport(out, opts.format, agreement.NewReport(ws, annotators))
+	report, err := agreement.NewReport(ws, annotators)
+	if err != nil {
+		return err
+	}
+	return writeReport(out, opts.format, report)
 }
 
-// selectLogs keeps the selected annotators' logs in the order given, or every
-// log when none is selected, and checks that at least two remain.
-func selectLogs(logs []store.AnnotatorLog, selected []task.Annotator) ([]store.AnnotatorLog, error) {
-	if len(selected) > 0 {
-		byName := map[task.Annotator]store.AnnotatorLog{}
-		for _, l := range logs {
-			byName[l.Annotator] = l
-		}
-		logs = make([]store.AnnotatorLog, 0, len(selected))
-		for _, a := range selected {
-			l, ok := byName[a]
-			if !ok {
-				return nil, fmt.Errorf("annotator %q has no log", a)
-			}
-			logs = append(logs, l)
-		}
+// readLogs reads only the selected annotators' logs, in the order given, or
+// every log when none is selected.
+func readLogs(dir string, selected []task.Annotator) ([]store.AnnotatorLog, error) {
+	if len(selected) == 0 {
+		return store.ReadLogs(dir)
 	}
-	if len(logs) < minAnnotators {
-		return nil, fmt.Errorf("agreement needs logs from at least two annotators, found %d", len(logs))
+	logs := make([]store.AnnotatorLog, 0, len(selected))
+	for _, a := range selected {
+		l, err := store.ReadLog(dir, a)
+		if err != nil {
+			return nil, err
+		}
+		logs = append(logs, l)
 	}
 	return logs, nil
 }

@@ -21,14 +21,9 @@ var ErrNotPair = errors.New("needs exactly two raters")
 // NewConfusion tabulates d, which must have exactly two raters. Units missing
 // either value are left out.
 func NewConfusion(d Data) (Confusion, error) {
-	if d.raters != 2 {
+	if d.raters != pair {
 		return Confusion{}, fmt.Errorf("%w: got %d", ErrNotPair, d.raters)
 	}
-	return tabulate(d), nil
-}
-
-// tabulate builds the table of two-rater data.
-func tabulate(d Data) Confusion {
 	c := Confusion{counts: map[[2]string]int{}}
 	seen := map[string]bool{}
 	for _, u := range d.units {
@@ -41,7 +36,7 @@ func tabulate(d Data) Confusion {
 		seen[a.category], seen[b.category] = true, true
 	}
 	c.categories = slices.Sorted(maps.Keys(seen))
-	return c
+	return c, nil
 }
 
 // Categories returns the categories either rater used, sorted.

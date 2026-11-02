@@ -19,21 +19,41 @@ type AnnotatorLog struct {
 
 const logExt = ".jsonl"
 
+// ErrNoLog means an annotator has no log in the task directory.
+var ErrNoLog = errors.New("annotator has no log")
+
 // ReadLogs reads every <dir>/annotations/<annotator>.jsonl, sorted by
 // annotator name. It takes no lock and never writes, so annotators may keep
 // working: a torn final line is skipped here and left for its writer to drop.
 // Without an annotations directory there are no logs.
 func ReadLogs(dir string) ([]AnnotatorLog, error) {
+	return inRoot(dir, readLogsIn)
+}
+
+// ReadLog reads one annotator's log the way ReadLogs does.
+func ReadLog(dir string, who task.Annotator) (AnnotatorLog, error) {
+	l, err := inRoot(dir, func(fsys fs.FS) (AnnotatorLog, error) {
+		return readLog(fsys, who.String()+logExt)
+	})
+	if errors.Is(err, fs.ErrNotExist) {
+		return AnnotatorLog{}, fmt.Errorf("%w: %s", ErrNoLog, who)
+	}
+	return l, err
+}
+
+// inRoot runs read on the file system confined to dir.
+func inRoot[T any](dir string, read func(fs.FS) (T, error)) (T, error) {
+	var zero T
 	root, err := os.OpenRoot(dir)
 	if err != nil {
-		return nil, fmt.Errorf("open dir %s: %w", dir, err)
+		return zero, fmt.Errorf("open dir %s: %w", dir, err)
 	}
-	logs, readErr := readLogsIn(root.FS())
+	v, readErr := read(root.FS())
 	closeErr := root.Close()
 	if readErr != nil {
-		return nil, readErr
+		return zero, readErr
 	}
-	return logs, closeErr
+	return v, closeErr
 }
 
 func readLogsIn(fsys fs.FS) ([]AnnotatorLog, error) {

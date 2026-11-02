@@ -154,6 +154,16 @@ func TestAgreeReportsAPairWithKappaAndConfusion(t *testing.T) {
 	assert.NotContains(t, doc, "criteria")
 }
 
+func TestAgreeReadsOnlyTheSelectedLogs(t *testing.T) {
+	logs := pairsLogs()
+	logs["carol"] = "{corrupt}\n"
+	dir := taskDir(t, pairsTask, logs)
+
+	doc := agreeJSON(t, "--task", dir, "--annotators", "alice,bob")
+
+	assert.Len(t, doc["annotators"], 2)
+}
+
 func TestAgreeAcrossAllAnnotatorsReportsAlphaOnly(t *testing.T) {
 	dir := taskDir(t, pairsTask, pairsLogs())
 
