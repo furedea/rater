@@ -87,6 +87,16 @@ keys: {next_hunk: n, prev_hunk: p}
 	assert.Equal(t, "down", tk.KeyFor(task.BindingScrollDown))
 }
 
+func TestParseTaskNormalizesLabelKeys(t *testing.T) {
+	tk, err := store.ParseTask([]byte("name: x\nfields: [{name: a}]\nlabels: [{key: shift+s, name: same}]\n"))
+	require.NoError(t, err)
+
+	l, ok := tk.LabelByKey('S')
+
+	assert.True(t, ok)
+	assert.Equal(t, "same", l.Name)
+}
+
 func TestParseItems(t *testing.T) {
 	tests := []struct {
 		name    string

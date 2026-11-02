@@ -182,7 +182,7 @@ func TestNewTaskKeyCollisions(t *testing.T) {
 		{"default binding equals label key", nil, []task.Label{{Key: ']', Name: "close"}}, `collides with label "close"`},
 		{"binding equals control key", map[task.Binding]string{task.BindingScrollDown: "tab"}, nil, "reserved"},
 		{"two bindings share a key", map[task.Binding]string{task.BindingScrollDown: "j", task.BindingPageDown: "j"}, nil, "bound twice"},
-		{"empty binding", map[task.Binding]string{task.BindingScrollUp: " "}, nil, "unusable key"},
+		{"empty binding", map[task.Binding]string{task.BindingScrollUp: ""}, nil, "unusable key"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

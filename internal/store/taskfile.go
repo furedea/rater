@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"unicode/utf8"
 
 	"go.yaml.in/yaml/v3"
 
@@ -151,11 +150,24 @@ func convertKeys(docs map[string]string) (map[task.Binding]string, error) {
 func convertLabels(docs []labelDoc) ([]task.Label, error) {
 	labels := make([]task.Label, 0, len(docs))
 	for _, d := range docs {
-		if utf8.RuneCountInString(d.Key) != 1 {
-			return nil, fmt.Errorf("%w: label %q key %q must be one character", task.ErrInvalidTask, d.Name, d.Key)
+		key, err := parseLabelKey(d.Key)
+		if err != nil {
+			return nil, fmt.Errorf("%w: label %q: %w", task.ErrInvalidTask, d.Name, err)
 		}
-		key, _ := utf8.DecodeRuneInString(d.Key)
 		labels = append(labels, task.Label{Key: key, Name: d.Name})
 	}
 	return labels, nil
+}
+
+// parseLabelKey accepts any spelling of a key that types one character, such as "S" or "shift+s".
+func parseLabelKey(written string) (rune, error) {
+	key, err := task.ParseKey(written)
+	if err != nil {
+		return 0, fmt.Errorf("key %q must be one character: %w", written, err)
+	}
+	r, ok := key.Rune()
+	if !ok {
+		return 0, fmt.Errorf("key %q must be one character", written)
+	}
+	return r, nil
 }

@@ -155,7 +155,7 @@ func (t Task) LabelByKey(key rune) (Label, bool) {
 func (t Task) BindingFor(key string) (Binding, bool) { return t.keys.bindingFor(key) }
 
 // KeyFor returns the key that triggers b.
-func (t Task) KeyFor(b Binding) string { return t.keys[b] }
+func (t Task) KeyFor(b Binding) string { return t.keys[b].String() }
 
 // HasLabel reports whether name is a configured label name.
 func (t Task) HasLabel(name string) bool {
