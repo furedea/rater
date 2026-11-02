@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"io"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -43,7 +45,15 @@ func TestRunRejectsBadSubcommand(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.ErrorIs(t, run(tt.args), errUsage)
+			assert.ErrorIs(t, run(tt.args, io.Discard), errUsage)
 		})
 	}
+}
+
+func TestRunPrintsVersion(t *testing.T) {
+	var out bytes.Buffer
+
+	require.NoError(t, run([]string{"--version"}, &out))
+
+	assert.Regexp(t, `^rater \d+\.\d+\.\d+\n$`, out.String())
 }
