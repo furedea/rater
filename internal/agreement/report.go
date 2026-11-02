@@ -61,7 +61,7 @@ func NewReport(ws task.Workspace, annotators []Annotator) (Report, error) {
 	var err error
 	switch scheme := ws.Task.Scheme().(type) {
 	case task.SingleChoice:
-		r.Overall, err = compared.measure("label", func(s task.State) string { return s.Label })
+		r.Overall, err = compared.measure("label", labelValue)
 	case task.Checklist:
 		r.Criteria, err = compared.criteria(scheme)
 		if err != nil {
@@ -99,7 +99,7 @@ type comparison struct {
 func (c comparison) criteria(scheme task.Checklist) ([]Measure, error) {
 	var measures []Measure
 	for _, cr := range scheme.Criteria() {
-		m, err := c.measure(cr.Name, func(s task.State) string { return s.Answers[cr.Name] })
+		m, err := c.measure(cr.Name, criterionValue(cr.Name))
 		if err != nil {
 			return nil, err
 		}
