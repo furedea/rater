@@ -1,0 +1,3 @@
+{"id":"g-001","sentence":"Functions should do one thing and be named after what they return or change."}
+{"id":"g-002","sentence":"Write good code."}
+{"id":"g-003","sentence":"Return errors as the last result and wrap them with the operation and subject."}

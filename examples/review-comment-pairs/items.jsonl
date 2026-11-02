@@ -1,0 +1,3 @@
+{"id":"pair-001","repo":"example/web","pr":101,"comment_a":"Please add a null check before dereferencing user.","comment_b":"user can be nil here, guard it before use."}
+{"id":"pair-002","repo":"example/web","pr":102,"comment_a":"Rename this variable to something more descriptive.","comment_b":"This function is too long; consider splitting it."}
+{"id":"pair-003","repo":"example/api","pr":57,"comment_a":"Add a test for the empty input case.","comment_b":"Tests are missing; please cover empty input and a very large input."}

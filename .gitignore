@@ -16,3 +16,6 @@ logs/
 go.work
 go.work.sum
 /dist/
+
+# Annotation logs produced by running the examples
+/examples/*/annotations/
