@@ -97,7 +97,7 @@ func (h *harness) replay(t *testing.T) *task.History {
 	log, prior, err := store.OpenLog(h.dir, who)
 	require.NoError(t, err)
 	require.NoError(t, log.Close())
-	return task.Replay(prior)
+	return task.Replay(task.SingleChoice{}, prior)
 }
 
 func TestLabelAdvancesAndPersists(t *testing.T) {

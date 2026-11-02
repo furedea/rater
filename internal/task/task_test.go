@@ -53,18 +53,59 @@ func TestNewTask(t *testing.T) {
 	}
 }
 
+func TestNewTaskSideBySideNeedsTwoFields(t *testing.T) {
+	two := []task.Field{{Name: "a"}, {Name: "b"}}
+	tests := []struct {
+		name    string
+		fields  []task.Field
+		wantErr bool
+	}{
+		{"two fields", two, false},
+		{"one field", two[:1], true},
+		{"three fields", append(append([]task.Field(nil), two...), task.Field{Name: "c"}), true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			spec := validSpec()
+			spec.Layout = task.LayoutSideBySide
+			spec.Fields = tt.fields
+
+			tk, err := task.NewTask(spec)
+
+			if !tt.wantErr {
+				require.NoError(t, err)
+				assert.Equal(t, task.LayoutSideBySide, tk.Layout())
+				return
+			}
+			require.ErrorIs(t, err, task.ErrInvalidTask)
+			assert.ErrorContains(t, err, "exactly two fields")
+		})
+	}
+}
+
+func TestParseLayout(t *testing.T) {
+	for _, l := range []task.Layout{task.LayoutStacked, task.LayoutSideBySide} {
+		got, err := task.ParseLayout(l.String())
+		require.NoError(t, err)
+		assert.Equal(t, l, got)
+	}
+	_, err := task.ParseLayout("grid")
+	assert.Error(t, err)
+}
+
 func TestTaskLabelLookup(t *testing.T) {
 	tk, err := task.NewTask(validSpec())
 	require.NoError(t, err)
 
-	l, ok := tk.LabelByKey('d')
+	sc, ok := tk.Scheme().(task.SingleChoice)
+	require.True(t, ok)
+
+	l, ok := sc.LabelByKey('d')
 	assert.True(t, ok)
 	assert.Equal(t, "distinct", l.Name)
 
-	_, ok = tk.LabelByKey('x')
+	_, ok = sc.LabelByKey('x')
 	assert.False(t, ok)
-	assert.True(t, tk.HasLabel("same"))
-	assert.False(t, tk.HasLabel("other"))
 }
 
 func TestNewWorkspace(t *testing.T) {

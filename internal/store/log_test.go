@@ -80,10 +80,89 @@ func TestLogResumeThroughSessionHonoursUndo(t *testing.T) {
 	require.NoError(t, first.Close())
 
 	_, prior := openLog(t, dir)
-	h := task.Replay(prior)
+	h := task.Replay(task.SingleChoice{}, prior)
 
 	assert.Equal(t, task.StatusLabeled, h.State("1").Status)
 	assert.Equal(t, task.StatusPending, h.State("2").Status)
+}
+
+func TestLogWritesAnswerRecordsWithTheirCriterion(t *testing.T) {
+	dir := t.TempDir()
+	l, _ := openLog(t, dir)
+	l.now = func() time.Time { return time.Date(2026, 11, 2, 3, 4, 5, 0, time.UTC) }
+
+	require.NoError(t, l.Append(task.Annotation{ItemID: "g-1", Action: task.ActionAnswer, Criterion: "specific", Label: "yes"}))
+
+	got, err := os.ReadFile(logPath(dir))
+	require.NoError(t, err)
+	want := `{"item":"g-1","annotator":"alice","action":"answer","criterion":"specific","label":"yes","at":"2026-11-02T03:04:05Z"}` + "\n"
+	assert.Equal(t, want, string(got))
+}
+
+// m1Log is a log as written by the first release, before answer records existed.
+const m1Log = `{"item":"1","annotator":"alice","action":"label","label":"same","at":"2026-10-01T00:00:00Z"}
+{"item":"2","annotator":"alice","action":"hold","at":"2026-10-01T00:00:01Z"}
+{"item":"2","annotator":"alice","action":"note","note":"unclear","at":"2026-10-01T00:00:02Z"}
+{"item":"3","annotator":"alice","action":"label","label":"distinct","at":"2026-10-01T00:00:03Z"}
+{"item":"3","annotator":"alice","action":"undo","at":"2026-10-01T00:00:04Z"}
+`
+
+func TestOpenLogReadsFirstReleaseLogs(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Dir(logPath(dir)), 0o750))
+	require.NoError(t, os.WriteFile(logPath(dir), []byte(m1Log), 0o600))
+
+	_, prior := openLog(t, dir)
+
+	require.Len(t, prior, 5)
+	assert.Equal(t, task.Annotation{
+		ItemID: "1", Annotator: "alice", Action: task.ActionLabel, Label: "same",
+		At: time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC),
+	}, prior[0])
+	h := task.Replay(task.SingleChoice{}, prior)
+	assert.Equal(t, task.State{Status: task.StatusLabeled, Label: "same"}, h.State("1"))
+	assert.Equal(t, task.State{Status: task.StatusHeld, Note: "unclear"}, h.State("2"))
+	assert.Equal(t, task.State{}, h.State("3"))
+}
+
+func checklistWorkspace(t *testing.T) task.Workspace {
+	t.Helper()
+	tk, err := ParseTask([]byte(`name: criteria
+fields: [{name: sentence}]
+checklist:
+  criteria: [{name: specific}, {name: checkable}]
+  answers: [{key: y, name: "yes"}, {key: "n", name: "no"}]
+  verdict: {rule: all_pass, pass: "yes", fail: "no"}
+`))
+	require.NoError(t, err)
+	ws, err := task.NewWorkspace(tk, []task.Item{
+		{ID: "1", Values: map[string]string{"sentence": "a"}},
+		{ID: "2", Values: map[string]string{"sentence": "b"}},
+	})
+	require.NoError(t, err)
+	return ws
+}
+
+func TestLogResumesChecklistAnswersThroughSession(t *testing.T) {
+	dir := t.TempDir()
+	first, _ := openLog(t, dir)
+	s, err := task.NewSession(checklistWorkspace(t), nil, first)
+	require.NoError(t, err)
+	require.NoError(t, s.Choose('y'))
+	require.NoError(t, s.Choose('n'))
+	require.NoError(t, s.Choose('y'))
+	require.NoError(t, s.Undo())
+	require.NoError(t, first.Close())
+
+	second, prior := openLog(t, dir)
+	resumed, err := task.NewSession(checklistWorkspace(t), prior, second)
+	require.NoError(t, err)
+
+	assert.Equal(t, "2", resumed.Current().ID, "the undone answer leaves item 2 pending")
+	assert.Equal(t, 0, resumed.Focus())
+	assert.Equal(t, 1, resumed.Labeled())
+	resumed.Prev()
+	assert.Equal(t, map[string]string{"specific": "yes", "checkable": "no"}, resumed.CurrentState().Answers)
 }
 
 func TestLogRecoversFromTornFinalLine(t *testing.T) {

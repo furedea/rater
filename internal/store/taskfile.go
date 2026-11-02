@@ -3,6 +3,7 @@ package store
 
 import (
 	"bytes"
+	"cmp"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,12 +15,30 @@ import (
 )
 
 type taskDoc struct {
-	Name   string            `yaml:"name"`
-	Layout string            `yaml:"layout"`
-	Header []string          `yaml:"header"`
-	Fields []fieldDoc        `yaml:"fields"`
-	Labels []labelDoc        `yaml:"labels"`
-	Keys   map[string]string `yaml:"keys"`
+	Name      string            `yaml:"name"`
+	Layout    string            `yaml:"layout"`
+	Header    []string          `yaml:"header"`
+	Fields    []fieldDoc        `yaml:"fields"`
+	Labels    []labelDoc        `yaml:"labels"`
+	Checklist *checklistDoc     `yaml:"checklist"`
+	Keys      map[string]string `yaml:"keys"`
+}
+
+type checklistDoc struct {
+	Criteria []criterionDoc `yaml:"criteria"`
+	Answers  []labelDoc     `yaml:"answers"`
+	Verdict  verdictDoc     `yaml:"verdict"`
+}
+
+type criterionDoc struct {
+	Name  string `yaml:"name"`
+	Title string `yaml:"title"`
+}
+
+type verdictDoc struct {
+	Rule string `yaml:"rule"`
+	Pass string `yaml:"pass"`
+	Fail string `yaml:"fail"`
 }
 
 type fieldDoc struct {
@@ -90,18 +109,72 @@ func (d taskDoc) spec() (task.Spec, error) {
 	if err != nil {
 		return task.Spec{}, err
 	}
+	checklist, err := convertChecklist(d.Checklist)
+	if err != nil {
+		return task.Spec{}, err
+	}
 	keys, err := convertKeys(d.Keys)
 	if err != nil {
 		return task.Spec{}, err
 	}
-	return task.Spec{Name: d.Name, Layout: layout, Header: d.Header, Fields: fields, Labels: labels, Keys: keys}, nil
+	return task.Spec{
+		Name: d.Name, Layout: layout, Header: d.Header, Fields: fields,
+		Labels: labels, Checklist: checklist, Keys: keys,
+	}, nil
+}
+
+// convertChecklist converts the optional checklist section; without one the task is single-choice.
+func convertChecklist(d *checklistDoc) (*task.ChecklistSpec, error) {
+	if d == nil {
+		return nil, nil
+	}
+	spec, err := d.spec()
+	if err != nil {
+		return nil, err
+	}
+	return &spec, nil
+}
+
+func (d checklistDoc) spec() (task.ChecklistSpec, error) {
+	answers, err := convertLabels(d.Answers)
+	if err != nil {
+		return task.ChecklistSpec{}, err
+	}
+	rule, err := d.Verdict.rule()
+	if err != nil {
+		return task.ChecklistSpec{}, err
+	}
+	criteria := make([]task.Criterion, 0, len(d.Criteria))
+	for _, c := range d.Criteria {
+		criteria = append(criteria, task.Criterion{Name: c.Name, Title: cmp.Or(c.Title, c.Name)})
+	}
+	return task.ChecklistSpec{Criteria: criteria, Answers: answers, Rule: rule}, nil
+}
+
+func (d verdictDoc) rule() (task.AllPass, error) {
+	if d.Rule == "" {
+		return task.AllPass{}, fmt.Errorf("%w: checklist verdict rule is required (rule: %s)", task.ErrInvalidTask, task.RuleAllPass)
+	}
+	kind, err := task.ParseVerdictRule(d.Rule)
+	if err != nil {
+		return task.AllPass{}, fmt.Errorf("%w: checklist verdict: %w", task.ErrInvalidTask, err)
+	}
+	switch kind {
+	case task.RuleAllPass:
+		return task.AllPass{Pass: d.Pass, Fail: d.Fail}, nil
+	}
+	return task.AllPass{}, fmt.Errorf("%w: checklist verdict rule %s is not supported", task.ErrInvalidTask, kind)
 }
 
 func parseLayout(s string) (task.Layout, error) {
-	if s == "" || s == task.LayoutStacked.String() {
+	if s == "" {
 		return task.LayoutStacked, nil
 	}
-	return 0, fmt.Errorf("%w: unsupported layout %q", task.ErrInvalidTask, s)
+	l, err := task.ParseLayout(s)
+	if err != nil {
+		return 0, fmt.Errorf("%w: unsupported layout %q", task.ErrInvalidTask, s)
+	}
+	return l, nil
 }
 
 func convertFields(docs []fieldDoc) ([]task.Field, error) {

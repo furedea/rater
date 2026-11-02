@@ -40,10 +40,13 @@ type logFile interface {
 	Close() error
 }
 
+// recordDoc is one JSONL line. Fields added after the first release are
+// omitempty, so older lines decode unchanged with those fields empty.
 type recordDoc struct {
 	Item      string    `json:"item"`
 	Annotator string    `json:"annotator"`
 	Action    string    `json:"action"`
+	Criterion string    `json:"criterion,omitempty"`
 	Label     string    `json:"label,omitempty"`
 	Note      string    `json:"note,omitempty"`
 	At        time.Time `json:"at"`
@@ -192,14 +195,14 @@ func parseRecord(line []byte) (task.Annotation, error) {
 	}
 	return task.Annotation{
 		ItemID: d.Item, Annotator: d.Annotator, Action: action,
-		Label: d.Label, Note: d.Note, At: d.At,
+		Criterion: d.Criterion, Label: d.Label, Note: d.Note, At: d.At,
 	}, nil
 }
 
 func toDoc(a task.Annotation) recordDoc {
 	return recordDoc{
 		Item: a.ItemID, Annotator: a.Annotator, Action: a.Action.String(),
-		Label: a.Label, Note: a.Note, At: a.At,
+		Criterion: a.Criterion, Label: a.Label, Note: a.Note, At: a.At,
 	}
 }
 

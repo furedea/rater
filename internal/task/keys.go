@@ -83,15 +83,16 @@ var defaultKeys = map[Binding]string{
 var controlKeys = []string{KeyQuit, KeyInterrupt, KeyHold, KeyPrev, KeyNext, KeyUndo, KeyNote}
 
 // newKeys applies overrides to the defaults and rejects keys that another
-// binding, a control key, or a label already uses. Keys are compared in their
-// canonical form, so "shift+s" collides with a label on "S".
-func newKeys(overrides map[Binding]string, labels []Label) (Keys, error) {
+// binding, a control key, or a label or answer already uses. Keys are compared
+// in their canonical form, so "shift+s" collides with a label on "S".
+func newKeys(overrides map[Binding]string, scheme Scheme) (Keys, error) {
 	owner := map[Key]string{}
 	for _, k := range controlKeys {
 		owner[Key{name: k}] = "reserved"
 	}
+	labels, noun := keyedLabels(scheme)
 	for _, l := range labels {
-		owner[KeyOfRune(l.Key)] = fmt.Sprintf("label %q", l.Name)
+		owner[KeyOfRune(l.Key)] = fmt.Sprintf("%s %q", noun, l.Name)
 	}
 	var keys Keys
 	for _, b := range Bindings() {

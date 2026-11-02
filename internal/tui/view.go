@@ -87,8 +87,9 @@ func (m Model) helpLines() string {
 }
 
 func (m Model) labelLegend() string {
+	sc, _ := m.session.Task().Scheme().(task.SingleChoice)
 	var parts []string
-	for _, l := range m.session.Task().Labels() {
+	for _, l := range sc.Labels() {
 		parts = append(parts, fmt.Sprintf("[%c] %s", l.Key, l.Name))
 	}
 	return strings.Join(parts, "   ")

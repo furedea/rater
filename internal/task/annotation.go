@@ -2,6 +2,7 @@ package task
 
 import (
 	"fmt"
+	"maps"
 	"time"
 )
 
@@ -14,6 +15,7 @@ const (
 	ActionHold
 	ActionNote
 	ActionUndo
+	ActionAnswer
 )
 
 func (a Action) String() string {
@@ -26,13 +28,15 @@ func (a Action) String() string {
 		return "note"
 	case ActionUndo:
 		return "undo"
+	case ActionAnswer:
+		return "answer"
 	}
 	return fmt.Sprintf("Action(%d)", int(a))
 }
 
 // ParseAction is the inverse of Action.String.
 func ParseAction(s string) (Action, error) {
-	for _, a := range []Action{ActionLabel, ActionHold, ActionNote, ActionUndo} {
+	for _, a := range []Action{ActionLabel, ActionHold, ActionNote, ActionUndo, ActionAnswer} {
 		if a.String() == s {
 			return a, nil
 		}
@@ -40,11 +44,13 @@ func ParseAction(s string) (Action, error) {
 	return 0, fmt.Errorf("unknown action %q", s)
 }
 
-// Annotation is one record of the append-only log.
+// Annotation is one record of the append-only log. A label record carries
+// Label; an answer record carries Criterion and the answer's name in Label.
 type Annotation struct {
 	ItemID    string
 	Annotator string
 	Action    Action
+	Criterion string
 	Label     string
 	Note      string
 	At        time.Time
@@ -53,7 +59,7 @@ type Annotation struct {
 // Status is where an item stands for one annotator.
 type Status int
 
-// Statuses.
+// Statuses. A checklist item is labeled once every criterion has an answer.
 const (
 	StatusPending Status = iota
 	StatusLabeled
@@ -72,27 +78,31 @@ func (s Status) String() string {
 	return fmt.Sprintf("Status(%d)", int(s))
 }
 
-// State is the latest effective state of one item.
+// State is the latest effective state of one item. Answers maps criterion
+// names to answer names; it is nil until a checklist answer is given and is
+// never modified in place.
 type State struct {
-	Status Status
-	Label  string
-	Note   string
+	Status  Status
+	Label   string
+	Answers map[string]string
+	Note    string
 }
 
 // History derives per-item state from annotation records, in log order.
 type History struct {
+	scheme Scheme
 	stacks map[string][]State
 	trail  []string
 }
 
-// NewHistory returns an empty history.
-func NewHistory() *History {
-	return &History{stacks: map[string][]State{}}
+// NewHistory returns an empty history for items answered under scheme.
+func NewHistory(scheme Scheme) *History {
+	return &History{scheme: scheme, stacks: map[string][]State{}}
 }
 
 // Replay builds a history from records, as read back from a log.
-func Replay(records []Annotation) *History {
-	h := NewHistory()
+func Replay(scheme Scheme, records []Annotation) *History {
+	h := NewHistory(scheme)
 	for _, r := range records {
 		h.Apply(r)
 	}
@@ -113,6 +123,9 @@ func (h *History) Apply(a Annotation) {
 		next.Status, next.Label = StatusHeld, ""
 	case ActionNote:
 		next.Note = a.Note
+	case ActionAnswer:
+		next.Answers = withAnswer(next.Answers, a.Criterion, a.Label)
+		next.Status = h.answeredStatus(next.Answers)
 	case ActionUndo:
 	}
 	h.stacks[a.ItemID] = append(h.stacks[a.ItemID], next)
@@ -134,6 +147,25 @@ func (h *History) LastItemID() (string, bool) {
 		return "", false
 	}
 	return h.trail[len(h.trail)-1], true
+}
+
+// answeredStatus is labeled when the answers complete the checklist, else pending.
+func (h *History) answeredStatus(answers map[string]string) Status {
+	switch s := h.scheme.(type) {
+	case Checklist:
+		if s.Complete(answers) {
+			return StatusLabeled
+		}
+	case SingleChoice:
+	}
+	return StatusPending
+}
+
+func withAnswer(answers map[string]string, criterion, answer string) map[string]string {
+	next := make(map[string]string, len(answers)+1)
+	maps.Copy(next, answers)
+	next[criterion] = answer
+	return next
 }
 
 func (h *History) pop(itemID string) {
