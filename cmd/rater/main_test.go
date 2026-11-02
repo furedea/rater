@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestParseAnnotateArgs(t *testing.T) {
+func TestParseSessionArgs(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    []string
@@ -21,14 +21,14 @@ func TestParseAnnotateArgs(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			opts, err := parseAnnotateArgs(tt.args)
+			opts, err := parseSessionArgs("annotate", tt.args)
 			if tt.wantErr != "" {
 				assert.ErrorContains(t, err, tt.wantErr)
 				return
 			}
 			require.NoError(t, err)
 			assert.Equal(t, "dir", opts.taskDir)
-			assert.Equal(t, "alice", opts.annotator.String())
+			assert.Equal(t, "alice", opts.who.String())
 		})
 	}
 }

@@ -58,7 +58,10 @@ func (s *Session) Task() Task { return s.ws.Task }
 func (s *Session) Current() Item { return s.ws.Items[s.cursor] }
 
 // CurrentState returns the state of the item under the cursor.
-func (s *Session) CurrentState() State { return s.history.State(s.Current().ID) }
+func (s *Session) CurrentState() State { return s.State(s.Current().ID) }
+
+// State returns the latest effective state of an item.
+func (s *Session) State(itemID string) State { return s.history.State(itemID) }
 
 // Position returns the 1-based cursor position and the item count.
 func (s *Session) Position() (n, total int) { return s.cursor + 1, len(s.ws.Items) }

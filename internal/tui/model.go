@@ -38,6 +38,9 @@ type Model struct {
 	panes   []pane
 	focus   int
 	shown   shownBody
+	// judgments is set on the adjudication screen, where the session holds
+	// the adjudicator's decisions and each annotator's answers are shown.
+	judgments Judgments
 }
 
 // shownBody identifies what the panes currently hold.
@@ -58,8 +61,12 @@ func New(session *task.Session) Model {
 // Run shows the session until the annotator quits. Every action is already
 // appended to the log when it happens, so quitting needs no extra save.
 func Run(session *task.Session) error {
-	if _, err := tea.NewProgram(New(session)).Run(); err != nil {
-		return fmt.Errorf("run annotate screen: %w", err)
+	return run(New(session), "annotate")
+}
+
+func run(m Model, screen string) error {
+	if _, err := tea.NewProgram(m).Run(); err != nil {
+		return fmt.Errorf("run %s screen: %w", screen, err)
 	}
 	return nil
 }

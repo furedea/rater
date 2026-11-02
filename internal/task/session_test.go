@@ -55,6 +55,15 @@ func TestSessionChooseRecordsAndAdvances(t *testing.T) {
 	assert.Equal(t, 1, s.Labeled())
 }
 
+func TestSessionStateOfAnyItemFollowsRecords(t *testing.T) {
+	s, _ := newSession(t, []task.Annotation{{ItemID: "2", Action: task.ActionLabel, Label: "distinct"}}, "1", "2")
+
+	require.NoError(t, s.Choose('s'))
+
+	assert.Equal(t, "same", s.State("1").Label)
+	assert.Equal(t, "distinct", s.State("2").Label)
+}
+
 func TestSessionChooseUnknownKey(t *testing.T) {
 	s, rec := newSession(t, nil, "1")
 

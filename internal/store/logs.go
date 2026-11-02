@@ -57,12 +57,12 @@ func inRoot[T any](dir string, read func(fs.FS) (T, error)) (T, error) {
 }
 
 func readLogsIn(fsys fs.FS) ([]AnnotatorLog, error) {
-	entries, err := fs.ReadDir(fsys, logDir)
+	entries, err := fs.ReadDir(fsys, annotationsDir)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("list %s: %w", logDir, err)
+		return nil, fmt.Errorf("list %s: %w", annotationsDir, err)
 	}
 	var logs []AnnotatorLog
 	for _, e := range entries {
@@ -83,7 +83,7 @@ func readLog(fsys fs.FS, name string) (AnnotatorLog, error) {
 	if err != nil {
 		return AnnotatorLog{}, fmt.Errorf("log %s: %w", name, err)
 	}
-	p := path.Join(logDir, name)
+	p := path.Join(annotationsDir, name)
 	data, err := fs.ReadFile(fsys, p)
 	if err != nil {
 		return AnnotatorLog{}, fmt.Errorf("read log %s: %w", p, err)

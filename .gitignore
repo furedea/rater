@@ -19,3 +19,5 @@ go.work.sum
 
 # Annotation logs produced by running the examples
 /examples/*/annotations/
+/examples/*/adjudications/
+/examples/*/gold.jsonl

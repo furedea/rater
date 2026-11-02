@@ -76,6 +76,9 @@ func (m Model) headerLine() string {
 	n, total := m.session.Position()
 	progress := fmt.Sprintf("%d / %d", n, total)
 	done := fmt.Sprintf("labeled %d", m.session.Labeled())
+	if m.adjudicating() {
+		done = fmt.Sprintf("resolved %d / %d", m.session.Labeled(), total)
+	}
 	return titleStyle.Render(m.session.Task().Name()) + "  " + progress + "  " + mutedStyle.Render(done)
 }
 
@@ -117,10 +120,14 @@ func (m Model) scrollLine() string {
 
 func (m Model) helpLines() string {
 	tk := m.session.Task()
-	first := "key: label · " + controlHelp
+	noun := "label"
 	if _, ok := tk.Scheme().(task.Checklist); ok {
-		first = "key: answer · " + controlHelp
+		noun = "answer"
 	}
+	if m.adjudicating() {
+		noun = "final " + noun
+	}
+	first := "key: " + noun + " · " + controlHelp
 	second := []string{
 		fmt.Sprintf("%s/%s: scroll", tk.KeyFor(task.BindingScrollUp), tk.KeyFor(task.BindingScrollDown)),
 		fmt.Sprintf("%s/%s: page", tk.KeyFor(task.BindingPageUp), tk.KeyFor(task.BindingPageDown)),
@@ -151,8 +158,14 @@ func (m Model) hasHunks() bool {
 func (m Model) answerSection() string {
 	switch s := m.session.Task().Scheme().(type) {
 	case task.SingleChoice:
+		if m.adjudicating() {
+			return legend(s.Labels()) + "\n\n" + m.judgmentLines()
+		}
 		return legend(s.Labels())
 	case task.Checklist:
+		if m.adjudicating() {
+			return m.adjudicationChecklist(s)
+		}
 		return m.checklistView(s)
 	}
 	return ""
