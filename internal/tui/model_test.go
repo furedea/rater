@@ -32,9 +32,10 @@ var (
 const finalWait = 3 * time.Second
 
 type harness struct {
-	dir string
-	tm  *teatest.TestModel
-	log *store.Log
+	dir    string
+	tm     *teatest.TestModel
+	log    *store.Log
+	scheme task.Scheme
 }
 
 func start(t *testing.T) *harness {
@@ -48,21 +49,32 @@ func start(t *testing.T) *harness {
 	return startWith(t, fields, items)
 }
 
-// termHeight is small enough that a long body or a multi-hunk diff overflows it.
-const termHeight = 20
+// The test terminal: termHeight is small enough that a long body or a
+// multi-hunk diff overflows it.
+const (
+	termWidth  = 100
+	termHeight = 20
+)
 
-// startWith runs a session over items on a 100×termHeight terminal.
-// The colour profile is pinned so the program's output does not depend on the
-// terminal running the tests.
+// startWith runs a single-choice session over items on the test terminal.
 func startWith(t *testing.T, fields []task.Field, items []task.Item) *harness {
 	t.Helper()
-	dir := t.TempDir()
-	tk, err := task.NewTask(task.Spec{
+	spec := task.Spec{
 		Name:   "pairs",
 		Header: []string{"repo"},
 		Fields: fields,
 		Labels: []task.Label{{Key: 's', Name: "same"}, {Key: 'd', Name: "distinct"}},
-	})
+	}
+	return startSpec(t, spec, items)
+}
+
+// startSpec runs a session of spec over items on the test terminal.
+// The colour profile is pinned so the program's output does not depend on the
+// terminal running the tests.
+func startSpec(t *testing.T, spec task.Spec, items []task.Item) *harness {
+	t.Helper()
+	dir := t.TempDir()
+	tk, err := task.NewTask(spec)
 	require.NoError(t, err)
 	ws, err := task.NewWorkspace(tk, items)
 	require.NoError(t, err)
@@ -74,10 +86,10 @@ func startWith(t *testing.T, fields []task.Field, items []task.Item) *harness {
 	session, err := task.NewSession(ws, prior, log)
 	require.NoError(t, err)
 	tm := teatest.NewTestModel(t, tui.New(session),
-		teatest.WithInitialTermSize(100, termHeight),
+		teatest.WithInitialTermSize(termWidth, termHeight),
 		teatest.WithProgramOptions(tea.WithColorProfile(colorprofile.Ascii)),
 	)
-	return &harness{dir: dir, tm: tm, log: log}
+	return &harness{dir: dir, tm: tm, log: log, scheme: tk.Scheme()}
 }
 
 // finish quits and returns the last rendered screen.
@@ -97,7 +109,7 @@ func (h *harness) replay(t *testing.T) *task.History {
 	log, prior, err := store.OpenLog(h.dir, who)
 	require.NoError(t, err)
 	require.NoError(t, log.Close())
-	return task.Replay(prior)
+	return task.Replay(h.scheme, prior)
 }
 
 func TestLabelAdvancesAndPersists(t *testing.T) {

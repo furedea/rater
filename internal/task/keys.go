@@ -2,10 +2,10 @@ package task
 
 import (
 	"fmt"
-	"strings"
 )
 
-// Fixed control keys of the annotate screen. Bindings may not reuse them.
+// Fixed control keys of the annotate screen, in canonical Key notation.
+// Bindings may not reuse them.
 const (
 	KeyQuit      = "esc"
 	KeyInterrupt = "ctrl+c"
@@ -27,26 +27,31 @@ const (
 	BindingPageDown
 	BindingNextHunk
 	BindingPrevHunk
+	BindingPrevCriterion
+	BindingNextCriterion
+	BindingSwitchPane
 	bindingCount
 )
 
+// bindingNames is indexed by Binding; its fixed length makes a new binding
+// without a name a compile error.
+var bindingNames = [bindingCount]string{
+	BindingScrollUp:      "scroll_up",
+	BindingScrollDown:    "scroll_down",
+	BindingPageUp:        "page_up",
+	BindingPageDown:      "page_down",
+	BindingNextHunk:      "next_hunk",
+	BindingPrevHunk:      "prev_hunk",
+	BindingPrevCriterion: "prev_criterion",
+	BindingNextCriterion: "next_criterion",
+	BindingSwitchPane:    "switch_pane",
+}
+
 func (b Binding) String() string {
-	switch b {
-	case BindingScrollUp:
-		return "scroll_up"
-	case BindingScrollDown:
-		return "scroll_down"
-	case BindingPageUp:
-		return "page_up"
-	case BindingPageDown:
-		return "page_down"
-	case BindingNextHunk:
-		return "next_hunk"
-	case BindingPrevHunk:
-		return "prev_hunk"
-	case bindingCount:
+	if b < 0 || b >= bindingCount {
+		return fmt.Sprintf("Binding(%d)", int(b))
 	}
-	return fmt.Sprintf("Binding(%d)", int(b))
+	return bindingNames[b]
 }
 
 // Bindings lists every binding in a stable order.
@@ -68,46 +73,55 @@ func ParseBinding(s string) (Binding, error) {
 	return 0, fmt.Errorf("unknown key binding %q", s)
 }
 
-// Keys maps each binding to the key, in Bubble Tea's key notation, that triggers it.
-type Keys [bindingCount]string
+// Keys maps each binding to the key that triggers it.
+type Keys [bindingCount]Key
 
-var defaultKeys = Keys{
+var defaultKeys = map[Binding]string{
 	BindingScrollUp:   "up",
 	BindingScrollDown: "down",
 	BindingPageUp:     "pgup",
 	BindingPageDown:   "pgdown",
 	BindingNextHunk:   "]",
 	BindingPrevHunk:   "[",
+	// Criterion focus moves with shift+arrows so that the plain arrows keep scrolling.
+	BindingPrevCriterion: "shift+up",
+	BindingNextCriterion: "shift+down",
+	BindingSwitchPane:    "ctrl+w",
 }
 
 var controlKeys = []string{KeyQuit, KeyInterrupt, KeyHold, KeyPrev, KeyNext, KeyUndo, KeyNote}
 
 // newKeys applies overrides to the defaults and rejects keys that another
-// binding, a control key, or a label already uses.
-func newKeys(overrides map[Binding]string, labels []Label) (Keys, error) {
-	keys := defaultKeys
-	for b, key := range overrides {
-		keys[b] = key
-	}
-	owner := map[string]string{}
+// binding, a control key, or a label or answer already uses. Keys are compared
+// in their canonical form, so "shift+s" collides with a label on "S".
+func newKeys(overrides map[Binding]string, scheme Scheme) (Keys, error) {
+	owner := map[Key]string{}
 	for _, k := range controlKeys {
-		owner[k] = "reserved"
+		owner[Key{name: k}] = "reserved"
 	}
+	labels, noun := keyedLabels(scheme)
 	for _, l := range labels {
-		owner[string(l.Key)] = fmt.Sprintf("label %q", l.Name)
+		owner[KeyOfRune(l.Key)] = fmt.Sprintf("%s %q", noun, l.Name)
 	}
+	var keys Keys
 	for _, b := range Bindings() {
-		if err := claimKey(owner, b, keys[b]); err != nil {
+		written, ok := overrides[b]
+		if !ok {
+			written = defaultKeys[b]
+		}
+		key, err := ParseKey(written)
+		if err != nil {
+			return Keys{}, invalidTask("key binding %s: %v", b, err)
+		}
+		if err := claimKey(owner, b, key); err != nil {
 			return Keys{}, err
 		}
+		keys[b] = key
 	}
 	return keys, nil
 }
 
-func claimKey(owner map[string]string, b Binding, key string) error {
-	if strings.TrimSpace(key) != key || key == "" {
-		return invalidTask("key binding %s has unusable key %q", b, key)
-	}
+func claimKey(owner map[Key]string, b Binding, key Key) error {
 	switch prior, taken := owner[key]; {
 	case !taken:
 		owner[key] = "binding"
@@ -121,7 +135,12 @@ func claimKey(owner map[string]string, b Binding, key string) error {
 	}
 }
 
-func (k Keys) bindingFor(key string) (Binding, bool) {
+// bindingFor matches a key as Bubble Tea reports it, in any accepted spelling.
+func (k Keys) bindingFor(written string) (Binding, bool) {
+	key, err := ParseKey(written)
+	if err != nil {
+		return 0, false
+	}
 	for b, bound := range k {
 		if bound == key {
 			return Binding(b), true

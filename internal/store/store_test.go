@@ -3,6 +3,7 @@ package store_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -32,7 +33,9 @@ func TestParseTask(t *testing.T) {
 		{"valid", validTaskYAML, ""},
 		{"explicit stacked text", "name: x\nlayout: stacked\nfields: [{name: a, render: text}]\nlabels: [{key: y, name: yes}]\n", ""},
 		{"unknown top-level key", validTaskYAML + "colour: red\n", "colour"},
-		{"unsupported layout", "name: x\nlayout: side-by-side\nfields: [{name: a}]\nlabels: [{key: y, name: yes}]\n", "unsupported layout"},
+		{"side-by-side", "name: x\nlayout: side-by-side\nfields: [{name: a}, {name: b, render: diff}]\nlabels: [{key: y, name: yes}]\n", ""},
+		{"side-by-side with one field", "name: x\nlayout: side-by-side\nfields: [{name: a}]\nlabels: [{key: y, name: yes}]\n", "exactly two fields"},
+		{"unsupported layout", "name: x\nlayout: grid\nfields: [{name: a}]\nlabels: [{key: y, name: yes}]\n", "unsupported layout"},
 		{"unsupported render", "name: x\nfields: [{name: a, render: html}]\nlabels: [{key: y, name: yes}]\n", "unsupported render"},
 		{"language on text field", "name: x\nfields: [{name: a, language: go}]\nlabels: [{key: y, name: yes}]\n", "language"},
 		{"unknown code language", "name: x\nfields: [{name: a, render: code, language: nosuchlang}]\nlabels: [{key: y, name: yes}]\n", "unknown language"},
@@ -85,6 +88,67 @@ keys: {next_hunk: n, prev_hunk: p}
 	assert.Equal(t, "n", tk.KeyFor(task.BindingNextHunk))
 	assert.Equal(t, "p", tk.KeyFor(task.BindingPrevHunk))
 	assert.Equal(t, "down", tk.KeyFor(task.BindingScrollDown))
+}
+
+const checklistTaskYAML = `name: criteria
+fields: [{name: sentence}]
+checklist:
+  criteria:
+    - {name: specific, title: Names a concrete construct}
+    - {name: checkable}
+  answers:
+    - {key: y, name: "yes"}
+    - {key: "n", name: "no"}
+    - {key: "?", name: unsure}
+  verdict: {rule: all_pass, pass: "yes", fail: "no"}
+`
+
+func TestParseTaskChecklist(t *testing.T) {
+	tk, err := store.ParseTask([]byte(checklistTaskYAML))
+	require.NoError(t, err)
+
+	cl, ok := tk.Scheme().(task.Checklist)
+	require.True(t, ok)
+	assert.Equal(t, []task.Criterion{
+		{Name: "specific", Title: "Names a concrete construct"},
+		{Name: "checkable", Title: "checkable"},
+	}, cl.Criteria())
+	assert.Equal(t, []task.Label{{Key: 'y', Name: "yes"}, {Key: 'n', Name: "no"}, {Key: '?', Name: "unsure"}}, cl.Answers())
+	assert.Equal(t, task.VerdictPass, cl.Verdict(map[string]string{"specific": "yes", "checkable": "yes"}))
+	assert.Equal(t, task.VerdictFail, cl.Verdict(map[string]string{"checkable": "no"}))
+}
+
+func TestParseTaskChecklistErrors(t *testing.T) {
+	tests := []struct {
+		name    string
+		yaml    string
+		wantErr string
+	}{
+		{"unknown rule", strings.Replace(checklistTaskYAML, "all_pass", "majority", 1), "majority"},
+		{"missing rule", strings.Replace(checklistTaskYAML, "rule: all_pass, ", "", 1), "verdict rule"},
+		{"labels and checklist", checklistTaskYAML + "labels: [{key: s, name: same}]\n", "not both"},
+		{"multi-char answer key", strings.Replace(checklistTaskYAML, "{key: y,", "{key: yy,", 1), "one character"},
+		{"unknown checklist key", strings.Replace(checklistTaskYAML, "  answers:", "  colour: red\n  answers:", 1), "colour"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := store.ParseTask([]byte(tt.yaml))
+
+			assert.ErrorContains(t, err, tt.wantErr)
+		})
+	}
+}
+
+func TestParseTaskNormalizesLabelKeys(t *testing.T) {
+	tk, err := store.ParseTask([]byte("name: x\nfields: [{name: a}]\nlabels: [{key: shift+s, name: same}]\n"))
+	require.NoError(t, err)
+
+	sc, ok := tk.Scheme().(task.SingleChoice)
+	require.True(t, ok)
+	l, ok := sc.LabelByKey('S')
+
+	assert.True(t, ok)
+	assert.Equal(t, "same", l.Name)
 }
 
 func TestParseItems(t *testing.T) {
@@ -143,6 +207,18 @@ func TestShippedExamplesLoad(t *testing.T) {
 			assert.NotEmpty(t, ws.Items)
 		})
 	}
+}
+
+func TestShippedExamplesUseTheirLayoutAndScheme(t *testing.T) {
+	pairs, err := store.LoadTask(filepath.Join("..", "..", "examples", "review-comment-pairs"))
+	require.NoError(t, err)
+	criteria, err := store.LoadTask(filepath.Join("..", "..", "examples", "guideline-criteria"))
+	require.NoError(t, err)
+
+	assert.Equal(t, task.LayoutSideBySide, pairs.Layout())
+	cl, ok := criteria.Scheme().(task.Checklist)
+	require.True(t, ok)
+	assert.Len(t, cl.Criteria(), 5)
 }
 
 func TestLoadWorkspace(t *testing.T) {

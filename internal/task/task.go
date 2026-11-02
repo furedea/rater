@@ -12,17 +12,30 @@ import (
 // Layout says how an item's fields are arranged on screen.
 type Layout int
 
-// Layouts. Later milestones add side-by-side.
+// Layouts. Side-by-side shows exactly two fields in two columns.
 const (
 	LayoutStacked Layout = iota
+	LayoutSideBySide
 )
 
 func (l Layout) String() string {
 	switch l {
 	case LayoutStacked:
 		return "stacked"
+	case LayoutSideBySide:
+		return "side-by-side"
 	}
 	return fmt.Sprintf("Layout(%d)", int(l))
+}
+
+// ParseLayout is the inverse of Layout.String.
+func ParseLayout(s string) (Layout, error) {
+	for _, l := range []Layout{LayoutStacked, LayoutSideBySide} {
+		if l.String() == s {
+			return l, nil
+		}
+	}
+	return 0, fmt.Errorf("unknown layout %q", s)
 }
 
 // Render says how a field's text is displayed.
@@ -83,7 +96,7 @@ type Task struct {
 	layout Layout
 	header []string
 	fields []Field
-	labels []Label
+	scheme Scheme
 	keys   Keys
 }
 
@@ -93,10 +106,15 @@ type Spec struct {
 	Layout Layout
 	Header []string
 	Fields []Field
-	Labels []Label
+	// Labels makes a single-choice task; Checklist makes a checklist task.
+	// Exactly one of them is set.
+	Labels    []Label
+	Checklist *ChecklistSpec
 	// Keys overrides the default key of each listed binding.
 	Keys map[Binding]string
 }
+
+const sideBySidePanes = 2
 
 // ErrInvalidTask wraps every validation failure of a task definition.
 var ErrInvalidTask = errors.New("invalid task")
@@ -109,10 +127,14 @@ func NewTask(spec Spec) (Task, error) {
 	if err := validateFields(spec.Fields); err != nil {
 		return Task{}, err
 	}
-	if err := validateLabels(spec.Labels); err != nil {
+	if spec.Layout == LayoutSideBySide && len(spec.Fields) != sideBySidePanes {
+		return Task{}, invalidTask("layout %s needs exactly two fields, got %d", spec.Layout, len(spec.Fields))
+	}
+	scheme, err := newScheme(spec.Labels, spec.Checklist)
+	if err != nil {
 		return Task{}, err
 	}
-	keys, err := newKeys(spec.Keys, spec.Labels)
+	keys, err := newKeys(spec.Keys, scheme)
 	if err != nil {
 		return Task{}, err
 	}
@@ -121,7 +143,7 @@ func NewTask(spec Spec) (Task, error) {
 		layout: spec.Layout,
 		header: append([]string(nil), spec.Header...),
 		fields: append([]Field(nil), spec.Fields...),
-		labels: append([]Label(nil), spec.Labels...),
+		scheme: scheme,
 		keys:   keys,
 	}, nil
 }
@@ -138,34 +160,14 @@ func (t Task) Header() []string { return append([]string(nil), t.header...) }
 // Fields returns the item fields shown to the annotator.
 func (t Task) Fields() []Field { return append([]Field(nil), t.fields...) }
 
-// Labels returns the single-choice labels in configured order.
-func (t Task) Labels() []Label { return append([]Label(nil), t.labels...) }
-
-// LabelByKey finds the label bound to key.
-func (t Task) LabelByKey(key rune) (Label, bool) {
-	for _, l := range t.labels {
-		if l.Key == key {
-			return l, true
-		}
-	}
-	return Label{}, false
-}
+// Scheme returns how items are answered.
+func (t Task) Scheme() Scheme { return t.scheme }
 
 // BindingFor finds the view binding triggered by key.
 func (t Task) BindingFor(key string) (Binding, bool) { return t.keys.bindingFor(key) }
 
 // KeyFor returns the key that triggers b.
-func (t Task) KeyFor(b Binding) string { return t.keys[b] }
-
-// HasLabel reports whether name is a configured label name.
-func (t Task) HasLabel(name string) bool {
-	for _, l := range t.labels {
-		if l.Name == name {
-			return true
-		}
-	}
-	return false
-}
+func (t Task) KeyFor(b Binding) string { return t.keys[b].String() }
 
 func validateFields(fields []Field) error {
 	if len(fields) == 0 {
@@ -197,21 +199,22 @@ func validateLanguage(f Field) error {
 	return nil
 }
 
-func validateLabels(labels []Label) error {
+// validateLabels checks keyed labels; noun ("label" or "answer") names them in messages.
+func validateLabels(labels []Label, noun string) error {
 	if len(labels) == 0 {
-		return invalidTask("no labels")
+		return invalidTask("no %ss", noun)
 	}
 	keys := map[rune]bool{}
 	names := map[string]bool{}
 	for _, l := range labels {
-		if err := validateLabel(l); err != nil {
+		if err := validateLabel(l, noun); err != nil {
 			return err
 		}
 		if keys[l.Key] {
-			return invalidTask("duplicate label key %q", l.Key)
+			return invalidTask("duplicate %s key %q", noun, l.Key)
 		}
 		if names[l.Name] {
-			return invalidTask("duplicate label name %q", l.Name)
+			return invalidTask("duplicate %s name %q", noun, l.Name)
 		}
 		keys[l.Key] = true
 		names[l.Name] = true
@@ -219,12 +222,12 @@ func validateLabels(labels []Label) error {
 	return nil
 }
 
-func validateLabel(l Label) error {
+func validateLabel(l Label, noun string) error {
 	if l.Name == "" {
-		return invalidTask("label name is empty")
+		return invalidTask("%s name is empty", noun)
 	}
 	if !unicode.IsPrint(l.Key) || unicode.IsSpace(l.Key) {
-		return invalidTask("label %q has unusable key %q", l.Name, l.Key)
+		return invalidTask("%s %q has unusable key %q", noun, l.Name, l.Key)
 	}
 	return nil
 }
