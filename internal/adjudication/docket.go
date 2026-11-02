@@ -78,8 +78,14 @@ func (d Docket) Judgments(itemID string) []Judgment {
 // Open starts an adjudicator's session over the disputed items, resuming
 // from the adjudicator's prior decisions. Decisions are annotation records
 // of the task's scheme, so labels, answers, holds, notes, and undo work as
-// in annotate. Prior decisions must fit the whole workspace; those on items
-// no longer disputed stay in the log but are not replayed into the session.
+// in annotate.
+//
+// Each new decision is stamped with the basis of its item: a digest of every
+// annotator's current state of it. Prior decisions must fit the whole
+// workspace, but only those on items still disputed and made against the
+// current basis are replayed; the rest stay in the log. So a decision whose
+// compared annotations have since changed is shown again as undecided, and
+// gold never pairs a decision with annotations the adjudicator did not see.
 func (d Docket) Open(prior []task.Annotation, rec task.Recorder) (*task.Session, error) {
 	if _, err := task.ReplayLog(d.ws, prior); err != nil {
 		return nil, err
@@ -92,13 +98,13 @@ func (d Docket) Open(prior []task.Annotation, rec task.Recorder) (*task.Session,
 	if err != nil {
 		return nil, err
 	}
-	return task.NewSession(ws, d.decisionsOnDisputed(prior), rec)
+	return task.NewSession(ws, d.currentDecisions(prior), basisRecorder{rec: rec, docket: d})
 }
 
-func (d Docket) decisionsOnDisputed(prior []task.Annotation) []task.Annotation {
+func (d Docket) currentDecisions(prior []task.Annotation) []task.Annotation {
 	var kept []task.Annotation
 	for _, a := range prior {
-		if d.outcomes[a.ItemID] == agreement.OutcomeDisagreed {
+		if d.outcomes[a.ItemID] == agreement.OutcomeDisagreed && a.Basis == d.basis(a.ItemID) {
 			kept = append(kept, a)
 		}
 	}

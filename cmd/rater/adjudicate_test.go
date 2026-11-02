@@ -83,6 +83,25 @@ func TestAdjudicateResumesFromTheAdjudicationLog(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestAdjudicateReopensADecisionWhoseAnnotationsChanged(t *testing.T) {
+	dir := taskDir(t, pairsTask, pairsLogs())
+	var started []string
+	require.NoError(t, adjudicate(adjudicateArgs(dir), choosing(&started, 's'), &bytes.Buffer{}))
+	carolLog := filepath.Join(dir, "annotations", "carol.jsonl")
+	f, err := os.OpenFile(carolLog, os.O_APPEND|os.O_WRONLY, 0) //nolint:gosec // dir is a t.TempDir
+	require.NoError(t, err)
+	_, err = f.WriteString(record("label 2 distinct"))
+	require.NoError(t, err)
+	require.NoError(t, f.Close())
+
+	require.NoError(t, adjudicate(adjudicateArgs(dir), choosing(&started), &bytes.Buffer{}))
+
+	assert.Equal(t, []string{"2", "2"}, started, "carol changed item 2 after it was decided")
+	gold := readGoldLines(t, dir)
+	require.Len(t, gold, 1, "only agreed item 1 remains in gold")
+	assert.Equal(t, "1", gold[0]["id"])
+}
+
 func TestAdjudicateWritesGoldEvenWhenTheScreenFails(t *testing.T) {
 	dir := taskDir(t, pairsTask, pairsLogs())
 	broken := func(s *task.Session, _ adjudication.Docket) error {

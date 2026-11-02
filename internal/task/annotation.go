@@ -46,6 +46,9 @@ func ParseAction(s string) (Action, error) {
 
 // Annotation is one record of the append-only log. A label record carries
 // Label; an answer record carries Criterion and the answer's name in Label.
+// Basis identifies what the record was made against, such as the
+// annotations an adjudicator compared; it is empty for an annotator's own
+// records and does not affect the item's state.
 type Annotation struct {
 	ItemID    string
 	Annotator string
@@ -53,6 +56,7 @@ type Annotation struct {
 	Criterion string
 	Label     string
 	Note      string
+	Basis     string
 	At        time.Time
 }
 

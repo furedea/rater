@@ -35,8 +35,8 @@ func TestAdjudicationLogResumesPriorDecisions(t *testing.T) {
 	carol := mustAnnotator(t, "carol")
 	first, _, err := store.OpenAdjudicationLog(dir, carol)
 	require.NoError(t, err)
-	require.NoError(t, first.Append(task.Annotation{ItemID: "2", Action: task.ActionLabel, Label: "same"}))
-	require.NoError(t, first.Append(task.Annotation{ItemID: "2", Action: task.ActionUndo}))
+	require.NoError(t, first.Append(task.Annotation{ItemID: "2", Action: task.ActionLabel, Label: "same", Basis: "b1"}))
+	require.NoError(t, first.Append(task.Annotation{ItemID: "2", Action: task.ActionUndo, Basis: "b1"}))
 	require.NoError(t, first.Close())
 
 	second, prior, err := store.OpenAdjudicationLog(dir, carol)
@@ -45,6 +45,7 @@ func TestAdjudicationLogResumesPriorDecisions(t *testing.T) {
 
 	require.Len(t, prior, 2)
 	assert.Equal(t, task.ActionLabel, prior[0].Action)
+	assert.Equal(t, "b1", prior[0].Basis, "the basis of a decision survives a resume")
 	assert.Equal(t, task.ActionUndo, prior[1].Action)
 }
 

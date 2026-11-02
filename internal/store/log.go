@@ -49,6 +49,7 @@ type recordDoc struct {
 	Criterion string    `json:"criterion,omitempty"`
 	Label     string    `json:"label,omitempty"`
 	Note      string    `json:"note,omitempty"`
+	Basis     string    `json:"basis,omitempty"`
 	At        time.Time `json:"at"`
 }
 
@@ -210,14 +211,14 @@ func parseRecord(line []byte) (task.Annotation, error) {
 	}
 	return task.Annotation{
 		ItemID: d.Item, Annotator: d.Annotator, Action: action,
-		Criterion: d.Criterion, Label: d.Label, Note: d.Note, At: d.At,
+		Criterion: d.Criterion, Label: d.Label, Note: d.Note, Basis: d.Basis, At: d.At,
 	}, nil
 }
 
 func toDoc(a task.Annotation) recordDoc {
 	return recordDoc{
 		Item: a.ItemID, Annotator: a.Annotator, Action: a.Action.String(),
-		Criterion: a.Criterion, Label: a.Label, Note: a.Note, At: a.At,
+		Criterion: a.Criterion, Label: a.Label, Note: a.Note, Basis: a.Basis, At: a.At,
 	}
 }
 

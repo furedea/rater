@@ -79,17 +79,28 @@ func ids(items []task.Item) []string {
 	return out
 }
 
-// pairsDocket: 1 agreed, 2 disagreed, 3 held by bob, 4 labeled by alice only,
-// 5 disagreed after bob's undo, 6 untouched.
-func pairsDocket(t *testing.T) adjudication.Docket {
-	t.Helper()
-	ws := workspace(t, singleChoiceSpec(), "1", "2", "3", "4", "5", "6")
+// pairsAnnotators: 1 agreed, 2 disagreed, 3 held by bob, 4 labeled by alice
+// only, 5 disagreed after bob's undo, 6 untouched. Extra records go to bob.
+func pairsAnnotators(ws task.Workspace, bobExtra ...task.Annotation) []adjudication.Annotator {
 	alice := annotator(ws, "alice",
 		label("1", "same"), label("2", "same"), label("3", "same"), label("4", "same"), label("5", "same"))
-	bob := annotator(ws, "bob",
+	bobRecords := []task.Annotation{
 		label("1", "same"), label("2", "distinct"), note("2", "different files"), hold("3"),
-		label("5", "same"), undo("5"), label("5", "distinct"))
-	d, err := adjudication.NewDocket(ws, []adjudication.Annotator{alice, bob})
+		label("5", "same"), undo("5"), label("5", "distinct"),
+	}
+	bob := annotator(ws, "bob", append(bobRecords, bobExtra...)...)
+	return []adjudication.Annotator{alice, bob}
+}
+
+func pairsDocket(t *testing.T) adjudication.Docket {
+	t.Helper()
+	return pairsDocketWith(t)
+}
+
+func pairsDocketWith(t *testing.T, bobExtra ...task.Annotation) adjudication.Docket {
+	t.Helper()
+	ws := workspace(t, singleChoiceSpec(), "1", "2", "3", "4", "5", "6")
+	d, err := adjudication.NewDocket(ws, pairsAnnotators(ws, bobExtra...))
 	require.NoError(t, err)
 	return d
 }
@@ -152,21 +163,65 @@ func TestOpenWalksDisputedItemsOnly(t *testing.T) {
 	require.NoError(t, s.Choose('d'))
 	assert.Equal(t, "5", s.Current().ID)
 	assert.Equal(t, 1, s.Labeled(), "one disagreement resolved")
-	assert.Equal(t, []task.Annotation{label("2", "distinct")}, rec.records)
+	require.Len(t, rec.records, 1)
+	assert.Equal(t, "2", rec.records[0].ItemID)
+	assert.Equal(t, "distinct", rec.records[0].Label)
+	assert.NotEmpty(t, rec.records[0].Basis, "a decision records what it was compared against")
+}
+
+// decide runs a session over d that types keys after noting the first item,
+// and returns the records it appended.
+func decide(t *testing.T, d adjudication.Docket, keys ...rune) []task.Annotation {
+	t.Helper()
+	rec := &memoryRecorder{}
+	s, err := d.Open(nil, rec)
+	require.NoError(t, err)
+	require.NoError(t, s.SetNote("decided"))
+	for _, k := range keys {
+		require.NoError(t, s.Choose(k))
+	}
+	return rec.records
 }
 
 func TestOpenResumesAtFirstUndecidedDisagreementAndUndoes(t *testing.T) {
 	d := pairsDocket(t)
-	prior := []task.Annotation{label("2", "same"), note("2", "same intent")}
+	prior := decide(t, d, 's')
 
 	s, err := d.Open(prior, &memoryRecorder{})
 	require.NoError(t, err)
 
 	assert.Equal(t, "5", s.Current().ID)
 	assert.Equal(t, 1, s.Labeled())
+	assert.Equal(t, "decided", s.State("2").Note)
 	require.NoError(t, s.Undo())
 	require.NoError(t, s.Undo())
 	assert.Equal(t, "2", s.Current().ID)
+	assert.Equal(t, 0, s.Labeled())
+}
+
+func TestOpenReopensDecisionWhenTheComparedAnnotationsChanged(t *testing.T) {
+	prior := decide(t, pairsDocket(t), 's', 'd')
+	changed := pairsDocketWith(t, label("2", "same"), label("2", "distinct"), note("2", "still distinct"))
+
+	s, err := changed.Open(prior, &memoryRecorder{})
+	require.NoError(t, err)
+
+	assert.Equal(t, "2", s.Current().ID, "bob's annotation of 2 is not what was adjudicated")
+	assert.Equal(t, 1, s.Labeled(), "the decision on 5 still stands")
+	assert.Equal(t, task.StatusPending, s.State("2").Status)
+	assert.Equal(t, task.StatusLabeled, s.State("5").Status)
+}
+
+func TestOpenReopensDecisionWhenAnAnnotatorJoins(t *testing.T) {
+	d := pairsDocket(t)
+	prior := decide(t, d, 's')
+	ws := workspace(t, singleChoiceSpec(), "1", "2", "3", "4", "5", "6")
+	joined, err := adjudication.NewDocket(ws, append(pairsAnnotators(ws), annotator(ws, "carl", label("2", "same"))))
+	require.NoError(t, err)
+
+	s, err := joined.Open(prior, &memoryRecorder{})
+	require.NoError(t, err)
+
 	assert.Equal(t, 0, s.Labeled())
 }
 

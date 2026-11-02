@@ -56,7 +56,9 @@ to the item; the header shows `resolved n / total`.
 The adjudicator answers with the same keys as `annotate`: a label or one answer per criterion
 (the verdict follows from the task's rule), `tab` to hold, `ctrl+n` for a note, and `ctrl+u` to
 undo. Decisions are appended to `adjudications/<adjudicator>.jsonl` as they happen, so a later run
-resumes at the first undecided disagreement.
+resumes at the first undecided disagreement. Each decision records a `basis`, a digest of the
+annotations shown when it was made; if an annotator later changes their label, answers, or note
+on that item, or another annotator joins, the item is shown as undecided again.
 
 On quit, `gold.jsonl` is rewritten from the logs, one line per item in `items.jsonl` order:
 
