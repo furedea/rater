@@ -32,12 +32,23 @@ type Session struct {
 // NewSession resumes from prior records: the cursor starts at the first
 // pending item, then the first held one, else the last item.
 func NewSession(ws Workspace, prior []Annotation, rec Recorder) (*Session, error) {
-	if err := checkRecords(ws, prior); err != nil {
+	history, err := ReplayLog(ws, prior)
+	if err != nil {
 		return nil, err
 	}
-	s := &Session{ws: ws, history: Replay(ws.Task.Scheme(), prior), rec: rec}
+	s := &Session{ws: ws, history: history, rec: rec}
 	s.moveTo(s.resumeIndex())
 	return s, nil
+}
+
+// ReplayLog builds the history of records read back from a log of ws,
+// rejecting records about unknown items or that the task's scheme cannot
+// have produced.
+func ReplayLog(ws Workspace, records []Annotation) (*History, error) {
+	if err := checkRecords(ws, records); err != nil {
+		return nil, err
+	}
+	return Replay(ws.Task.Scheme(), records), nil
 }
 
 // Task returns the task being annotated.

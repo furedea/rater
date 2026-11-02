@@ -206,6 +206,38 @@ func TestSessionResumeThenUndoUsesReplayedTrail(t *testing.T) {
 	assert.Equal(t, "2", s.Current().ID)
 }
 
+func TestReplayLogChecksRecordsAgainstTheWorkspace(t *testing.T) {
+	ws := newWorkspace(t, "1")
+	tests := []struct {
+		name    string
+		records []task.Annotation
+		wantErr error
+	}{
+		{"unknown item", []task.Annotation{{ItemID: "ghost", Action: task.ActionHold}}, task.ErrUnknownItem},
+		{"unknown label", []task.Annotation{{ItemID: "1", Action: task.ActionLabel, Label: "nope"}}, task.ErrRecordMismatch},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := task.ReplayLog(ws, tt.records)
+
+			assert.ErrorIs(t, err, tt.wantErr)
+		})
+	}
+}
+
+func TestReplayLogDerivesLatestState(t *testing.T) {
+	ws := newWorkspace(t, "1")
+
+	h, err := task.ReplayLog(ws, []task.Annotation{
+		{ItemID: "1", Action: task.ActionLabel, Label: "same"},
+		{ItemID: "1", Action: task.ActionHold},
+		{ItemID: "1", Action: task.ActionUndo},
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, task.State{Status: task.StatusLabeled, Label: "same"}, h.State("1"))
+}
+
 func TestNewSessionRejectsUnknownItemInLog(t *testing.T) {
 	prior := []task.Annotation{{ItemID: "ghost", Action: task.ActionHold}}
 
