@@ -162,6 +162,46 @@ func TestServeLetsAnAnnotatorReconnectAfterADroppedConnection(t *testing.T) {
 	require.NoError(t, again.wait(t))
 }
 
+func TestServeReleasesTheLogWhenTheClientClosesOnlyTheSession(t *testing.T) {
+	alice := newSigner(t)
+	h := startServer(t, map[string]gossh.Signer{"alice": alice})
+	term := openTerminal(t, h.mustDial(t, "alice", alice))
+	term.waitFor(t, "first")
+
+	require.NoError(t, term.sess.Close())
+
+	require.Eventually(t, func() bool {
+		l, _, err := store.OpenLog(h.dir, mustAnnotator(t, "alice"))
+		if err != nil {
+			return false
+		}
+		return l.Close() == nil
+	}, waitLimit, 10*time.Millisecond, "the session ends although the connection stays open")
+}
+
+func TestServeReturnsWhenCancelledBeforeItStarts(t *testing.T) {
+	srv, err := server.New(server.Config{
+		TaskDir: t.TempDir(), Keys: keyring(t, map[string]gossh.Signer{"alice": newSigner(t)}), HostKey: newSigner(t),
+	})
+	require.NoError(t, err)
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	served := make(chan error, 1)
+	go func() { served <- srv.Serve(ctx, l) }()
+
+	select {
+	case err := <-served:
+		require.NoError(t, err)
+	case <-time.After(waitLimit):
+		t.Fatal("Serve kept accepting after its context ended")
+	}
+	_, err = net.DialTimeout("tcp", l.Addr().String(), time.Second)
+	assert.Error(t, err, "the listener is closed")
+}
+
 func TestServeGivesNoCommandSubsystemOrForwarding(t *testing.T) {
 	alice := newSigner(t)
 	h := startServer(t, map[string]gossh.Signer{"alice": alice})
@@ -257,15 +297,9 @@ func startServerWith(t *testing.T, signers map[string]gossh.Signer, assignment s
 	require.NoError(t, err)
 	plan, err := store.LoadAssignment(dir, ws)
 	require.NoError(t, err)
-	var lines []string
-	for name, s := range signers {
-		lines = append(lines, keyLine(name, s))
-	}
-	keys, err := server.ParseKeyring([]byte(strings.Join(lines, "\n")))
-	require.NoError(t, err)
 	hostKey, err := server.LoadHostKey(filepath.Join(t.TempDir(), "host_ed25519"))
 	require.NoError(t, err)
-	srv, err := server.New(server.Config{TaskDir: dir, Assignment: plan, Keys: keys, HostKey: hostKey})
+	srv, err := server.New(server.Config{TaskDir: dir, Assignment: plan, Keys: keyring(t, signers), HostKey: hostKey})
 	require.NoError(t, err)
 
 	l, err := net.Listen("tcp", "127.0.0.1:0")
@@ -284,6 +318,17 @@ func startServerWith(t *testing.T, signers map[string]gossh.Signer, assignment s
 	})
 	t.Cleanup(func() { assert.NoError(t, stop()) })
 	return &harness{addr: l.Addr().String(), dir: dir, hostKey: hostKey.PublicKey(), stop: stop}
+}
+
+func keyring(t *testing.T, signers map[string]gossh.Signer) server.Keyring {
+	t.Helper()
+	var lines []string
+	for name, s := range signers {
+		lines = append(lines, keyLine(name, s))
+	}
+	keys, err := server.ParseKeyring([]byte(strings.Join(lines, "\n")))
+	require.NoError(t, err)
+	return keys
 }
 
 func (h *harness) dial(user string, key gossh.Signer) (*gossh.Client, error) {

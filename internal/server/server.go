@@ -91,19 +91,23 @@ func New(cfg Config) (*Server, error) {
 func (s *Server) Serve(ctx context.Context, l net.Listener) error {
 	g, ctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
-		if err := s.ssh.Serve(l); !errors.Is(err, ssh.ErrServerClosed) {
-			return fmt.Errorf("serve ssh: %w", err)
+		err := s.ssh.Serve(l)
+		if errors.Is(err, ssh.ErrServerClosed) || ctx.Err() != nil {
+			return nil // stopped by shutdown, which closes the listener
 		}
-		return nil
+		return fmt.Errorf("serve ssh: %w", err)
 	})
 	g.Go(func() error {
 		<-ctx.Done()
-		return s.shutdown()
+		return s.shutdown(l)
 	})
 	return g.Wait()
 }
 
-func (s *Server) shutdown() error {
+// shutdown closes l itself as well, because ctx may end before the SSH
+// server has registered l, and then the server's shutdown would not close it.
+func (s *Server) shutdown(l net.Listener) error {
+	closeErr := l.Close()
 	s.sessions.close()
 	grace, cancel := context.WithTimeout(context.Background(), shutdownGrace)
 	defer cancel()
@@ -112,10 +116,18 @@ func (s *Server) shutdown() error {
 		err = s.ssh.Close()
 	}
 	s.sessions.wait()
-	if err != nil {
+	// Both close l, so whichever runs second finds it already closed.
+	if err := errors.Join(ignoreClosed(closeErr), ignoreClosed(err)); err != nil {
 		return fmt.Errorf("shut down ssh: %w", err)
 	}
 	return nil
+}
+
+func ignoreClosed(err error) error {
+	if errors.Is(err, net.ErrClosed) {
+		return nil
+	}
+	return err
 }
 
 // registered accepts exactly the keys in the keyring. It does not record the
@@ -172,8 +184,10 @@ func (s *Server) runAnnotator(sess ssh.Session, who task.Annotator) (err error) 
 	if err != nil {
 		return fmt.Errorf("resume session: %w", err)
 	}
-	opts := append(wishtea.MakeOptions(sess), tea.WithoutSignalHandler())
-	return s.run(sess, tea.NewProgram(tui.New(session), opts...))
+	pty, _, _ := sess.Pty()
+	// Later options win, so the capped size replaces the one MakeOptions takes from the client.
+	opts := append(wishtea.MakeOptions(sess), tea.WithoutSignalHandler(), tea.WithWindowSize(screenSize(pty.Window)))
+	return s.run(sess, tea.NewProgram(tui.NewRemote(session), opts...))
 }
 
 // run drives p until it quits, forwarding window resizes and quitting it when
@@ -197,16 +211,29 @@ func (s *Server) run(sess ssh.Session, p *tea.Program) error {
 // Quitting a program that has already ended does nothing.
 func (s *Server) steer(ctx context.Context, p *tea.Program, windows <-chan ssh.Window) {
 	closing := s.sessions.closing
-	for {
+	for steering := true; steering; {
 		select {
 		case <-ctx.Done():
 			p.Quit()
-			return
+			steering = false
 		case <-closing:
 			p.Quit()
 			closing = nil // quit once; keep forwarding until the program ends
-		case w := <-windows:
-			p.Send(tea.WindowSizeMsg{Width: w.Width, Height: w.Height})
+		case w, open := <-windows:
+			steering = resize(p, w, open)
 		}
 	}
+}
+
+// resize hands p the capped window size. A closed window channel means the
+// client closed the session but kept the connection, so p quits and resize
+// reports false.
+func resize(p *tea.Program, w ssh.Window, open bool) bool {
+	if !open {
+		p.Quit()
+		return false
+	}
+	width, height := screenSize(w)
+	p.Send(tea.WindowSizeMsg{Width: width, Height: height})
+	return true
 }

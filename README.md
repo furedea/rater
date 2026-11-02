@@ -115,7 +115,9 @@ rater serve --task <dir> --listen <addr> --keys <file> [--host-key <path>]
 ssh -p 2222 rater.example.org
 ```
 
-Each connection runs its own screen at the client's terminal size and follows its resizes. The
+Each connection runs its own screen at the client's terminal size, capped at 1000 columns by 500
+rows, and follows its resizes. In the note field, the terminal's own paste works but `ctrl+v` is
+off, since it would read the server's clipboard. The
 server gives no shell: commands (`ssh host ls`), subsystems such as SFTP, port forwarding, and
 sessions without a terminal (`ssh -T`) are refused.
 
