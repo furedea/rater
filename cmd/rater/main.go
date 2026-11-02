@@ -14,7 +14,9 @@ func main() {
 	}
 }
 
-var errUsage = errors.New("usage: rater annotate --task <dir> --as <annotator>")
+var errUsage = errors.New(`usage:
+  rater annotate --task <dir> --as <annotator>
+  rater agree --task <dir> [--format text|json] [--annotators a,b]`)
 
 func run(args []string) error {
 	if len(args) == 0 {
@@ -23,6 +25,8 @@ func run(args []string) error {
 	switch args[0] {
 	case "annotate":
 		return runAnnotate(args[1:])
+	case "agree":
+		return runAgree(args[1:], os.Stdout)
 	}
 	return fmt.Errorf("unknown subcommand %q: %w", args[0], errUsage)
 }

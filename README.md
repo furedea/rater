@@ -19,6 +19,27 @@ Long bodies scroll: `↑`/`↓` move a line and `pgup`/`pgdown` a page. In a dif
 to the next and previous hunk; the position line shows which hunk is being read, and `]` reaches
 every hunk even when the last ones fit on screen together.
 
+## Agreement
+
+```
+rater agree --task <dir> [--format text|json] [--annotators a,b]
+```
+
+`agree` reads every `annotations/<annotator>.jsonl` (or only the listed annotators), replays each
+log the way `annotate` resumes it (undo and hold included), and compares the latest labels.
+Held items and incomplete checklists are left out and counted per annotator. It reports:
+
+- Krippendorff's alpha (nominal) over all selected annotators, using every item at least two of
+  them labeled.
+- For exactly two annotators, Cohen's kappa with observed and expected agreement, and the
+  confusion matrix of the label (or of the verdict for a checklist).
+- For a checklist, one row per criterion and one for the verdict, recomputed from the task's rule.
+
+A coefficient that cannot be computed, because no item was labeled by enough annotators or
+every compared value is the same category, is shown as `n/a` with the reason (`null` with an
+`undefined` field in JSON). Weighted kappa, ordinal or interval alpha, and confidence intervals
+are not computed. `agree` takes no lock, so it can run while others annotate.
+
 ## Layout
 
 `layout: stacked` (default) shows the fields one under another. `layout: side-by-side` shows
@@ -38,14 +59,14 @@ A task answers each item in one of two ways:
 
 ```yaml
 checklist:
-  criteria:
-    - {name: concrete, title: Names a concrete code construct}
-    - {name: checkable}
-  answers:
-    - {key: y, name: "yes"}
-    - {key: "n", name: "no"}
-    - {key: "?", name: unsure}
-  verdict: {rule: all_pass, pass: "yes", fail: "no"}
+    criteria:
+        - { name: concrete, title: Names a concrete code construct }
+        - { name: checkable }
+    answers:
+        - { key: y, name: "yes" }
+        - { key: "n", name: "no" }
+        - { key: "?", name: unsure }
+    verdict: { rule: all_pass, pass: "yes", fail: "no" }
 ```
 
 The verdict is derived from the answers by `verdict.rule` and shown below the criteria; it is not
@@ -69,9 +90,9 @@ falls back to `language`, then to a guess from the source.
 
 ```yaml
 fields:
-  - {name: snippet, render: code, language: go, language_field: lang}
+    - { name: snippet, render: code, language: go, language_field: lang }
 keys:
-  next_hunk: "n"
+    next_hunk: "n"
 ```
 
 ## Keys
