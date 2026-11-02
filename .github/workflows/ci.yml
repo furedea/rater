@@ -42,6 +42,27 @@ jobs:
       - name: Run deadnix
         run: nix run nixpkgs#deadnix -- --fail .
 
+  nix-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@ab739621df7a23f52766f9ccc97f38da6b7af14f # v31.10.5
+
+      # The check builds the package, so it also runs the tests and verifies vendorHash.
+      - name: Run nix flake check
+        run: nix flake check --print-build-logs
+
+      - name: Run the packaged binary
+        run: nix run . -- --version
+
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -137,7 +158,7 @@ jobs:
 
   all-green:
     if: always()
-    needs: [nix-lint, lint, format, test, audit]
+    needs: [nix-lint, nix-build, lint, format, test, audit]
     runs-on: ubuntu-latest
     timeout-minutes: 1
     permissions: {}
