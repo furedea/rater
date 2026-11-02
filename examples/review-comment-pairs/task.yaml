@@ -1,5 +1,6 @@
 name: review-comment-pairs
-layout: stacked
+# Two fields side by side; stacked when the terminal is narrower than 63 columns.
+layout: side-by-side
 header: [repo, pr]
 fields:
   - name: comment_a

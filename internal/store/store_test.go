@@ -209,6 +209,18 @@ func TestShippedExamplesLoad(t *testing.T) {
 	}
 }
 
+func TestShippedExamplesUseTheirLayoutAndScheme(t *testing.T) {
+	pairs, err := store.LoadTask(filepath.Join("..", "..", "examples", "review-comment-pairs"))
+	require.NoError(t, err)
+	criteria, err := store.LoadTask(filepath.Join("..", "..", "examples", "guideline-criteria"))
+	require.NoError(t, err)
+
+	assert.Equal(t, task.LayoutSideBySide, pairs.Layout())
+	cl, ok := criteria.Scheme().(task.Checklist)
+	require.True(t, ok)
+	assert.Len(t, cl.Criteria(), 5)
+}
+
 func TestLoadWorkspace(t *testing.T) {
 	t.Run("valid", func(t *testing.T) {
 		dir := writeTaskDir(t, `{"id":"1","a":"x","b":"y"}`+"\n")
