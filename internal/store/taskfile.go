@@ -10,21 +10,25 @@ import (
 
 	"go.yaml.in/yaml/v3"
 
+	"github.com/furedea/rater/internal/render"
 	"github.com/furedea/rater/internal/task"
 )
 
 type taskDoc struct {
-	Name   string     `yaml:"name"`
-	Layout string     `yaml:"layout"`
-	Header []string   `yaml:"header"`
-	Fields []fieldDoc `yaml:"fields"`
-	Labels []labelDoc `yaml:"labels"`
+	Name   string            `yaml:"name"`
+	Layout string            `yaml:"layout"`
+	Header []string          `yaml:"header"`
+	Fields []fieldDoc        `yaml:"fields"`
+	Labels []labelDoc        `yaml:"labels"`
+	Keys   map[string]string `yaml:"keys"`
 }
 
 type fieldDoc struct {
-	Name   string `yaml:"name"`
-	Title  string `yaml:"title"`
-	Render string `yaml:"render"`
+	Name          string `yaml:"name"`
+	Title         string `yaml:"title"`
+	Render        string `yaml:"render"`
+	Language      string `yaml:"language"`
+	LanguageField string `yaml:"language_field"`
 }
 
 type labelDoc struct {
@@ -87,7 +91,11 @@ func (d taskDoc) spec() (task.Spec, error) {
 	if err != nil {
 		return task.Spec{}, err
 	}
-	return task.Spec{Name: d.Name, Layout: layout, Header: d.Header, Fields: fields, Labels: labels}, nil
+	keys, err := convertKeys(d.Keys)
+	if err != nil {
+		return task.Spec{}, err
+	}
+	return task.Spec{Name: d.Name, Layout: layout, Header: d.Header, Fields: fields, Labels: labels, Keys: keys}, nil
 }
 
 func parseLayout(s string) (task.Layout, error) {
@@ -100,16 +108,44 @@ func parseLayout(s string) (task.Layout, error) {
 func convertFields(docs []fieldDoc) ([]task.Field, error) {
 	fields := make([]task.Field, 0, len(docs))
 	for _, d := range docs {
-		if d.Render != "" && d.Render != task.RenderText.String() {
-			return nil, fmt.Errorf("%w: unsupported render %q for field %q", task.ErrInvalidTask, d.Render, d.Name)
+		f, err := d.field()
+		if err != nil {
+			return nil, err
 		}
-		title := d.Title
-		if title == "" {
-			title = d.Name
-		}
-		fields = append(fields, task.Field{Name: d.Name, Title: title, Render: task.RenderText})
+		fields = append(fields, f)
 	}
 	return fields, nil
+}
+
+func (d fieldDoc) field() (task.Field, error) {
+	kind := task.RenderText
+	if d.Render != "" {
+		parsed, err := task.ParseRender(d.Render)
+		if err != nil {
+			return task.Field{}, fmt.Errorf("%w: unsupported render %q for field %q", task.ErrInvalidTask, d.Render, d.Name)
+		}
+		kind = parsed
+	}
+	if d.Language != "" && !render.HasLanguage(d.Language) {
+		return task.Field{}, fmt.Errorf("%w: field %q has unknown language %q", task.ErrInvalidTask, d.Name, d.Language)
+	}
+	title := d.Title
+	if title == "" {
+		title = d.Name
+	}
+	return task.Field{Name: d.Name, Title: title, Render: kind, Language: d.Language, LanguageField: d.LanguageField}, nil
+}
+
+func convertKeys(docs map[string]string) (map[task.Binding]string, error) {
+	keys := make(map[task.Binding]string, len(docs))
+	for name, key := range docs {
+		b, err := task.ParseBinding(name)
+		if err != nil {
+			return nil, fmt.Errorf("%w: keys: %w", task.ErrInvalidTask, err)
+		}
+		keys[b] = key
+	}
+	return keys, nil
 }
 
 func convertLabels(docs []labelDoc) ([]task.Label, error) {

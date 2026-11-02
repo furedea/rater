@@ -11,14 +11,15 @@ import (
 )
 
 const (
-	defaultWidth = 80
-	maxWidth     = 100
+	defaultWidth  = 80
+	defaultHeight = 24
+	maxWidth      = 100
+	minBodyHeight = 3
 )
 
 var (
 	titleStyle  = lipgloss.NewStyle().Bold(true)
 	mutedStyle  = lipgloss.NewStyle().Faint(true)
-	fieldStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
 	statusStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("1"))
 )
 
@@ -31,13 +32,24 @@ func (m Model) View() tea.View {
 	return v
 }
 
-func (m Model) render() string {
-	width := min(m.width, maxWidth)
-	body := lipgloss.NewStyle().Width(width)
-	sections := []string{m.headerLine(), m.metaLine()}
-	sections = append(sections, m.fieldBlocks()...)
-	sections = append(sections, m.labelLegend(), m.stateLine(), m.noteLine(), m.statusLine(), mutedStyle.Render(helpText))
-	return body.Render(strings.Join(nonEmpty(sections), "\n\n"))
+func (m Model) render() string { return m.compose(m.body.View()) }
+
+// compose lays the fixed sections around the scrollable body.
+func (m Model) compose(body string) string {
+	sections := []string{
+		m.headerLine(), m.metaLine(), body, m.scrollLine(),
+		m.labelLegend(), m.stateLine(), m.noteLine(), m.statusLine(), m.helpLines(),
+	}
+	frame := lipgloss.NewStyle().Width(m.contentWidth())
+	return frame.Render(strings.Join(nonEmpty(sections), "\n\n"))
+}
+
+func (m Model) contentWidth() int { return max(min(m.width, maxWidth), 1) }
+
+// bodyHeight is what the terminal leaves for the body after the fixed sections.
+func (m Model) bodyHeight() int {
+	chrome := lipgloss.Height(m.compose("x")) - 1
+	return max(m.height-chrome, minBodyHeight)
 }
 
 func (m Model) headerLine() string {
@@ -56,13 +68,22 @@ func (m Model) metaLine() string {
 	return mutedStyle.Render(strings.Join(parts, " · "))
 }
 
-func (m Model) fieldBlocks() []string {
-	item := m.session.Current()
-	var blocks []string
-	for _, f := range m.session.Task().Fields() {
-		blocks = append(blocks, fieldStyle.Render(f.Title)+"\n"+item.Values[f.Name])
+func (m Model) scrollLine() string {
+	total := m.body.TotalLineCount()
+	first := min(m.body.YOffset()+1, total)
+	last := min(m.body.YOffset()+m.body.Height(), total)
+	return mutedStyle.Render(fmt.Sprintf("lines %d–%d of %d", first, last, total))
+}
+
+func (m Model) helpLines() string {
+	tk := m.session.Task()
+	scroll := fmt.Sprintf("%s/%s: scroll · %s/%s: page",
+		tk.KeyFor(task.BindingScrollUp), tk.KeyFor(task.BindingScrollDown),
+		tk.KeyFor(task.BindingPageUp), tk.KeyFor(task.BindingPageDown))
+	if m.hunks.Len() > 0 {
+		scroll += fmt.Sprintf(" · %s/%s: hunk", tk.KeyFor(task.BindingPrevHunk), tk.KeyFor(task.BindingNextHunk))
 	}
-	return blocks
+	return mutedStyle.Render(helpText + "\n" + scroll)
 }
 
 func (m Model) labelLegend() string {
