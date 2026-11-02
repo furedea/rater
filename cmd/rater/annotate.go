@@ -45,12 +45,16 @@ func runAnnotate(args []string) (err error) {
 	if err != nil {
 		return err
 	}
+	plan, err := store.LoadAssignment(opts.taskDir, ws)
+	if err != nil {
+		return err
+	}
 	log, prior, err := store.OpenLog(opts.taskDir, opts.who)
 	if err != nil {
 		return err
 	}
 	defer func() { err = errors.Join(err, log.Close()) }()
-	session, err := task.NewSession(ws, prior, log)
+	session, err := plan.StartSession(opts.who, prior, log)
 	if err != nil {
 		return fmt.Errorf("resume session: %w", err)
 	}

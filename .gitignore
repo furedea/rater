@@ -21,3 +21,4 @@ go.work.sum
 /examples/*/annotations/
 /examples/*/adjudications/
 /examples/*/gold.jsonl
+/examples/*/host_ed25519

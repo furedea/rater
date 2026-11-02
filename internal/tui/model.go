@@ -58,6 +58,15 @@ func New(session *task.Session) Model {
 	return m.refresh()
 }
 
+// NewRemote returns a model for a screen shown to a remote client. It never
+// reads the clipboard of the host it runs on: ctrl+v in the note field is off,
+// while the client terminal's own paste still reaches the note.
+func NewRemote(session *task.Session) Model {
+	m := New(session)
+	m.input.KeyMap.Paste.SetEnabled(false)
+	return m
+}
+
 // Run shows the session until the annotator quits. Every action is already
 // appended to the log when it happens, so quitting needs no extra save.
 func Run(session *task.Session) error {

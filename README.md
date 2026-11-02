@@ -76,7 +76,80 @@ anyone other than `--as`, and names whose log it found; the same adjudicator can
 To hand over, move the previous adjudicator's log out of `adjudications/` or rename it so it no
 longer ends in `.jsonl` (for example `carol.jsonl.handed-over`). The new adjudicator then starts
 from no decisions, and the previous decisions leave `gold.jsonl` when the new adjudicator quits.
-`rater adjudicate --help` repeats this rule.
+`rater adjudicate --help` repeats this rule. The check and the creation of the log run under an
+exclusive lock on `adjudications/`, so two adjudicators starting at the same moment on a fresh
+task cannot both pass it.
+
+## Assignment
+
+An optional `assignment.yaml` in the task directory limits the items each annotator sees, in
+both `annotate` and `serve`. Annotators it does not name see every item.
+
+```yaml
+split: # deal items round-robin to a group
+    annotators: [alice, bob, carol]
+    copies: 2 # each item goes to 2 of them
+items: # or list the items of one annotator
+    dave: [item-1, item-7]
+```
+
+`split` gives item number `i` (in `items.jsonl` order, from 0) to annotators `i`, `i+1`, ...,
+`i+copies-1` of the list, wrapping around, so every item gets `copies` annotators and, with
+`copies` of 2 or more, every pair of neighbours in the list shares items for `agree`. `copies`
+must be between 1 and the number of annotators, and every annotator must get at least one item.
+An annotator may appear in `split` or `items`, not both, and listed items must exist. The file
+lives apart from `task.yaml` because it is about people, not the task: it changes as annotators
+join or leave, while `task.yaml` and the logs stay as they are. If the assignment changes,
+records about items no longer assigned stay in the log and still count in `agree` and
+`adjudicate`; the annotator just no longer sees those items.
+
+## Serving over SSH
+
+```
+rater serve --task <dir> --listen <addr> --keys <file> [--host-key <path>]
+```
+
+`serve` shows the `annotate` screen to annotators over SSH, so they need only an SSH client:
+
+```
+ssh -p 2222 rater.example.org
+```
+
+Each connection runs its own screen at the client's terminal size, capped at 1000 columns by 500
+rows, and follows its resizes. In the note field, the terminal's own paste works but `ctrl+v` is
+off, since it would read the server's clipboard. The
+server gives no shell: commands (`ssh host ls`), subsystems such as SFTP, port forwarding, and
+sessions without a terminal (`ssh -T`) are refused.
+
+The keys file registers who may connect. Each line holds an annotator name and one public key in
+`authorized_keys` form; an annotator may have several lines, and `#` starts a comment:
+
+```
+alice ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... alice@laptop
+alice ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... alice@desktop
+bob   ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQ...
+```
+
+Only public-key logins with a registered key are accepted; passwords are not. The key decides the
+annotator, so the SSH user name does not matter and nobody can type another name. Key options such
+as `from="..."` are rejected rather than ignored, and each key may appear once.
+
+Annotation is blind: a session replays and shows only its own annotator's log, so nobody sees
+another annotator's labels, notes, or progress. `adjudicate` is not served; run it locally.
+
+An annotator has one session at a time. Each session holds the exclusive lock on its annotator's
+log (the same lock that keeps two local `annotate` runs apart), so a second connection, or a local
+`annotate --as` for the same name, is refused with a message until the first quits. A dropped
+connection ends its session and releases the lock.
+
+The host key (`--host-key`, default `<dir>/host_ed25519`) is generated as Ed25519 with mode
+`0600` on the first start and reused afterwards, so clients see the same host key; the server
+refuses a key file that group or others can access. Keep it out of version control. The first
+line `serve` prints includes the key's SHA256 fingerprint for annotators to compare.
+
+`SIGINT` or `SIGTERM` stops accepting connections, quits every session, and returns once each has
+closed its log; a second signal kills the server. Every label is already on disk when it is made,
+so nothing is lost either way.
 
 ## Layout
 
