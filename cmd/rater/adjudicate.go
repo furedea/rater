@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 
@@ -13,6 +14,18 @@ import (
 
 // screen shows an adjudication session until the adjudicator quits.
 type screen func(*task.Session, adjudication.Docket) error
+
+const adjudicateHelp = `usage: rater adjudicate --task <dir> --as <adjudicator>
+
+Shows only the items the annotators disagree on and records each decision in
+adjudications/<adjudicator>.jsonl. On quit, gold.jsonl is rebuilt from the
+annotation logs and that one adjudication log.
+
+A task has one adjudicator: adjudicate refuses to start when adjudications/
+holds a log of anyone else, and the same adjudicator can always resume. To hand
+over, move the previous adjudicator's log out of adjudications/ or rename it so
+it no longer ends in .jsonl; its decisions then leave gold.jsonl on the next quit.
+`
 
 func showAdjudication(s *task.Session, d adjudication.Docket) error { return tui.RunAdjudication(s, d) }
 
@@ -26,6 +39,10 @@ func runAdjudicate(args []string, out io.Writer) error {
 // when show fails, since each decision is already durable when it is made.
 func adjudicate(args []string, show screen, out io.Writer) (err error) {
 	opts, err := parseSessionArgs("adjudicate", args)
+	if errors.Is(err, flag.ErrHelp) {
+		_, err := fmt.Fprint(out, adjudicateHelp)
+		return err
+	}
 	if err != nil {
 		return err
 	}

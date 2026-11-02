@@ -70,6 +70,14 @@ Each line carries `label`, or `answers` and `verdict`, and `annotations`: every 
 status, answer, note, and `records`, the number of lines of their append-only log that were
 replayed, so the compared annotations can be found again. Undecided disagreements are left out.
 
+A task has one adjudicator, because `gold.jsonl` is rebuilt from one adjudication log.
+`adjudicate` refuses to start, before writing anything, when `adjudications/` holds a log of
+anyone other than `--as`, and names whose log it found; the same adjudicator can always resume.
+To hand over, move the previous adjudicator's log out of `adjudications/` or rename it so it no
+longer ends in `.jsonl` (for example `carol.jsonl.handed-over`). The new adjudicator then starts
+from no decisions, and the previous decisions leave `gold.jsonl` when the new adjudicator quits.
+`rater adjudicate --help` repeats this rule.
+
 ## Layout
 
 `layout: stacked` (default) shows the fields one under another. `layout: side-by-side` shows

@@ -57,25 +57,52 @@ func inRoot[T any](dir string, read func(fs.FS) (T, error)) (T, error) {
 }
 
 func readLogsIn(fsys fs.FS) ([]AnnotatorLog, error) {
-	entries, err := fs.ReadDir(fsys, annotationsDir)
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil, nil
-	}
+	names, err := logNames(fsys, annotationsDir)
 	if err != nil {
-		return nil, fmt.Errorf("list %s: %w", annotationsDir, err)
+		return nil, err
 	}
-	var logs []AnnotatorLog
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), logExt) {
-			continue
-		}
-		l, err := readLog(fsys, e.Name())
+	logs := make([]AnnotatorLog, 0, len(names))
+	for _, name := range names {
+		l, err := readLog(fsys, name)
 		if err != nil {
 			return nil, err
 		}
 		logs = append(logs, l)
 	}
 	return logs, nil
+}
+
+// otherLogOwners names, in sorted order, everyone but who with a log in logDir.
+func otherLogOwners(fsys fs.FS, logDir string, who task.Annotator) ([]string, error) {
+	names, err := logNames(fsys, logDir)
+	if err != nil {
+		return nil, err
+	}
+	var others []string
+	for _, name := range names {
+		if owner := strings.TrimSuffix(name, logExt); owner != who.String() {
+			others = append(others, owner)
+		}
+	}
+	return others, nil
+}
+
+// logNames lists the *.jsonl file names in logDir, sorted; a missing logDir has none.
+func logNames(fsys fs.FS, logDir string) ([]string, error) {
+	entries, err := fs.ReadDir(fsys, logDir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("list %s: %w", logDir, err)
+	}
+	var names []string
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasSuffix(e.Name(), logExt) {
+			names = append(names, e.Name())
+		}
+	}
+	return names, nil
 }
 
 func readLog(fsys fs.FS, name string) (AnnotatorLog, error) {

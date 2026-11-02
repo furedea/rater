@@ -152,3 +152,31 @@ func TestAdjudicateRejects(t *testing.T) {
 		})
 	}
 }
+
+func TestAdjudicateRefusesASecondAdjudicatorWithoutTouchingGold(t *testing.T) {
+	dir := taskDir(t, pairsTask, pairsLogs())
+	var started []string
+	require.NoError(t, adjudicate([]string{"--task", dir, "--as", "carol"}, choosing(&started, 's'), &bytes.Buffer{}))
+	goldPath := filepath.Join(dir, "gold.jsonl")
+	before, err := os.ReadFile(goldPath) //nolint:gosec // dir is a t.TempDir
+	require.NoError(t, err)
+
+	err = adjudicate(adjudicateArgs(dir), choosing(&started), &bytes.Buffer{})
+
+	require.ErrorContains(t, err, "carol")
+	assert.Equal(t, []string{"2"}, started, "dave never sees the screen")
+	after, err := os.ReadFile(goldPath) //nolint:gosec // dir is a t.TempDir
+	require.NoError(t, err)
+	assert.Equal(t, before, after, "carol's decisions stay in gold")
+	_, err = os.Stat(filepath.Join(dir, "adjudications", "dave.jsonl"))
+	assert.ErrorIs(t, err, os.ErrNotExist)
+}
+
+func TestAdjudicateHelpStatesTheOneAdjudicatorRule(t *testing.T) {
+	var out bytes.Buffer
+
+	require.NoError(t, adjudicate([]string{"--help"}, choosing(new([]string)), &out))
+
+	assert.Contains(t, out.String(), "one adjudicator")
+	assert.Contains(t, out.String(), "adjudications/")
+}
