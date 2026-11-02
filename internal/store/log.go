@@ -55,16 +55,31 @@ type recordDoc struct {
 // ErrLogInUse means another process already has this annotator's log open.
 var ErrLogInUse = errors.New("annotation log is in use by another process")
 
-const logDir = "annotations"
+// Log directories under a task directory. Adjudications live apart from
+// annotations so that an adjudicator is never compared as an annotator.
+const (
+	annotationsDir   = "annotations"
+	adjudicationsDir = "adjudications"
+)
 
 // OpenLog opens <dir>/annotations/<annotator>.jsonl for appending and returns its prior records.
 // It holds an exclusive lock until Close, so two processes cannot append to one log.
 func OpenLog(dir string, who task.Annotator) (*Log, []task.Annotation, error) {
+	return openLogAt(dir, annotationsDir, who)
+}
+
+// OpenAdjudicationLog opens <dir>/adjudications/<adjudicator>.jsonl the way
+// OpenLog opens an annotation log; its records are the adjudicator's decisions.
+func OpenAdjudicationLog(dir string, who task.Annotator) (*Log, []task.Annotation, error) {
+	return openLogAt(dir, adjudicationsDir, who)
+}
+
+func openLogAt(dir, logDir string, who task.Annotator) (*Log, []task.Annotation, error) {
 	root, err := os.OpenRoot(dir)
 	if err != nil {
 		return nil, nil, fmt.Errorf("open dir %s: %w", dir, err)
 	}
-	l, prior, err := openLogIn(root, who)
+	l, prior, err := openLogIn(root, logDir, who)
 	if closeErr := root.Close(); closeErr != nil {
 		err = errors.Join(err, fmt.Errorf("close dir %s: %w", dir, closeErr))
 	}
@@ -74,7 +89,7 @@ func OpenLog(dir string, who task.Annotator) (*Log, []task.Annotation, error) {
 	return l, prior, nil
 }
 
-func openLogIn(root *os.Root, who task.Annotator) (*Log, []task.Annotation, error) {
+func openLogIn(root *os.Root, logDir string, who task.Annotator) (*Log, []task.Annotation, error) {
 	if err := root.MkdirAll(logDir, dirPerm); err != nil {
 		return nil, nil, fmt.Errorf("create %s dir: %w", logDir, err)
 	}
@@ -92,7 +107,7 @@ func openLogIn(root *os.Root, who task.Annotator) (*Log, []task.Annotation, erro
 		return l, nil, fmt.Errorf("recover log %s: %w", name, err)
 	}
 	l.size = size
-	if err := syncDir(root); err != nil {
+	if err := syncDir(root, logDir); err != nil {
 		return l, nil, err
 	}
 	return l, prior, nil
@@ -206,7 +221,7 @@ func toDoc(a task.Annotation) recordDoc {
 	}
 }
 
-func syncDir(root *os.Root) error {
+func syncDir(root *os.Root, logDir string) error {
 	d, err := root.Open(logDir)
 	if err != nil {
 		return fmt.Errorf("open dir %s: %w", logDir, err)
