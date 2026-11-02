@@ -27,26 +27,31 @@ const (
 	BindingPageDown
 	BindingNextHunk
 	BindingPrevHunk
+	BindingPrevCriterion
+	BindingNextCriterion
+	BindingSwitchPane
 	bindingCount
 )
 
+// bindingNames is indexed by Binding; its fixed length makes a new binding
+// without a name a compile error.
+var bindingNames = [bindingCount]string{
+	BindingScrollUp:      "scroll_up",
+	BindingScrollDown:    "scroll_down",
+	BindingPageUp:        "page_up",
+	BindingPageDown:      "page_down",
+	BindingNextHunk:      "next_hunk",
+	BindingPrevHunk:      "prev_hunk",
+	BindingPrevCriterion: "prev_criterion",
+	BindingNextCriterion: "next_criterion",
+	BindingSwitchPane:    "switch_pane",
+}
+
 func (b Binding) String() string {
-	switch b {
-	case BindingScrollUp:
-		return "scroll_up"
-	case BindingScrollDown:
-		return "scroll_down"
-	case BindingPageUp:
-		return "page_up"
-	case BindingPageDown:
-		return "page_down"
-	case BindingNextHunk:
-		return "next_hunk"
-	case BindingPrevHunk:
-		return "prev_hunk"
-	case bindingCount:
+	if b < 0 || b >= bindingCount {
+		return fmt.Sprintf("Binding(%d)", int(b))
 	}
-	return fmt.Sprintf("Binding(%d)", int(b))
+	return bindingNames[b]
 }
 
 // Bindings lists every binding in a stable order.
@@ -78,6 +83,10 @@ var defaultKeys = map[Binding]string{
 	BindingPageDown:   "pgdown",
 	BindingNextHunk:   "]",
 	BindingPrevHunk:   "[",
+	// Criterion focus moves with shift+arrows so that the plain arrows keep scrolling.
+	BindingPrevCriterion: "shift+up",
+	BindingNextCriterion: "shift+down",
+	BindingSwitchPane:    "ctrl+w",
 }
 
 var controlKeys = []string{KeyQuit, KeyInterrupt, KeyHold, KeyPrev, KeyNext, KeyUndo, KeyNote}

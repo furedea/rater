@@ -189,6 +189,8 @@ func TestTaskKeysDefaults(t *testing.T) {
 		"up": task.BindingScrollUp, "down": task.BindingScrollDown,
 		"pgup": task.BindingPageUp, "pgdown": task.BindingPageDown,
 		"]": task.BindingNextHunk, "[": task.BindingPrevHunk,
+		"shift+up": task.BindingPrevCriterion, "shift+down": task.BindingNextCriterion,
+		"ctrl+w": task.BindingSwitchPane,
 	} {
 		got, ok := tk.BindingFor(key)
 		assert.True(t, ok, key)

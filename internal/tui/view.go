@@ -7,14 +7,17 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
+	"github.com/furedea/rater/internal/render"
 	"github.com/furedea/rater/internal/task"
 )
 
 const (
 	defaultWidth  = 80
 	defaultHeight = 24
-	maxWidth      = 100
-	minBodyHeight = 3
+	// maxWidth caps a stacked body; side-by-side gets room for two such columns.
+	maxWidth           = 100
+	maxSideBySideWidth = 160
+	minBodyHeight      = 3
 )
 
 var (
@@ -23,7 +26,7 @@ var (
 	statusStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("1"))
 )
 
-const helpText = "key: label · tab: hold · ←/→: prev/next · ctrl+u: undo · ctrl+n: note · esc: quit"
+const controlHelp = "tab: hold · ←/→: prev/next · ctrl+u: undo · ctrl+n: note · esc: quit"
 
 // View implements tea.Model.
 func (m Model) View() tea.View {
@@ -32,24 +35,41 @@ func (m Model) View() tea.View {
 	return v
 }
 
-func (m Model) render() string { return m.compose(m.body.View()) }
+func (m Model) render() string { return m.compose(m.bodyView()) }
 
 // compose lays the fixed sections around the scrollable body.
 func (m Model) compose(body string) string {
 	sections := []string{
-		m.headerLine(), m.metaLine(), body, m.scrollLine(),
-		m.labelLegend(), m.stateLine(), m.noteLine(), m.statusLine(), m.helpLines(),
+		m.headerLine(), m.metaLine(), m.layoutNotice(), body, m.scrollLine(),
+		m.answerSection(), m.stateLine(), m.noteLine(), m.statusLine(), m.helpLines(),
 	}
 	frame := lipgloss.NewStyle().Width(m.contentWidth())
 	return frame.Render(strings.Join(nonEmpty(sections), "\n\n"))
 }
 
-func (m Model) contentWidth() int { return max(min(m.width, maxWidth), 1) }
+func (m Model) contentWidth() int {
+	limit := maxWidth
+	if m.session.Task().Layout() == task.LayoutSideBySide {
+		limit = maxSideBySideWidth
+	}
+	return max(min(m.width, limit), 1)
+}
 
 // bodyHeight is what the terminal leaves for the body after the fixed sections.
 func (m Model) bodyHeight() int {
 	chrome := lipgloss.Height(m.compose("x")) - 1
 	return max(m.height-chrome, minBodyHeight)
+}
+
+// bodyView draws one pane, or two columns separated by a ruled gap.
+func (m Model) bodyView() string {
+	if len(m.panes) == 1 {
+		return m.panes[0].view.View()
+	}
+	cols, _ := m.columns()
+	height := m.panes[0].view.Height()
+	gap := strings.TrimSuffix(strings.Repeat(" │ \n", height), "\n")
+	return lipgloss.JoinHorizontal(lipgloss.Top, m.panes[0].render(cols.Left), gap, m.panes[1].render(cols.Right))
 }
 
 func (m Model) headerLine() string {
@@ -68,44 +88,124 @@ func (m Model) metaLine() string {
 	return mutedStyle.Render(strings.Join(parts, " · "))
 }
 
+// layoutNotice explains a side-by-side task shown stacked on a narrow terminal.
+func (m Model) layoutNotice() string {
+	if m.session.Task().Layout() != task.LayoutSideBySide || len(m.panes) != 1 {
+		return ""
+	}
+	return statusStyle.Render(fmt.Sprintf(
+		"terminal too narrow for side-by-side (needs %d columns); showing stacked", render.MinSideBySideWidth))
+}
+
+// scrollLine shows each pane's position; with two panes, ▶ marks the focused one.
 func (m Model) scrollLine() string {
-	total := m.body.TotalLineCount()
-	first := min(m.body.YOffset()+1, total)
-	last := min(m.body.YOffset()+m.body.Height(), total)
-	return mutedStyle.Render(fmt.Sprintf("lines %d–%d of %d", first, last, total))
+	if len(m.panes) == 1 {
+		return mutedStyle.Render(m.panes[0].position())
+	}
+	cols, _ := m.columns()
+	parts := make([]string, len(m.panes))
+	widths := []int{cols.Left, cols.Right}
+	for i, p := range m.panes {
+		marker := "  "
+		if i == m.focus {
+			marker = "▶ "
+		}
+		parts[i] = lipgloss.NewStyle().Width(widths[i]).Render(marker + p.position())
+	}
+	return mutedStyle.Render(parts[0] + strings.Repeat(" ", render.ColumnGap) + parts[1])
 }
 
 func (m Model) helpLines() string {
 	tk := m.session.Task()
-	scroll := fmt.Sprintf("%s/%s: scroll · %s/%s: page",
-		tk.KeyFor(task.BindingScrollUp), tk.KeyFor(task.BindingScrollDown),
-		tk.KeyFor(task.BindingPageUp), tk.KeyFor(task.BindingPageDown))
-	if m.hunks.Len() > 0 {
-		scroll += fmt.Sprintf(" · %s/%s: hunk", tk.KeyFor(task.BindingPrevHunk), tk.KeyFor(task.BindingNextHunk))
+	first := "key: label · " + controlHelp
+	if _, ok := tk.Scheme().(task.Checklist); ok {
+		first = "key: answer · " + controlHelp
 	}
-	return mutedStyle.Render(helpText + "\n" + scroll)
+	second := []string{
+		fmt.Sprintf("%s/%s: scroll", tk.KeyFor(task.BindingScrollUp), tk.KeyFor(task.BindingScrollDown)),
+		fmt.Sprintf("%s/%s: page", tk.KeyFor(task.BindingPageUp), tk.KeyFor(task.BindingPageDown)),
+	}
+	if m.hasHunks() {
+		second = append(second, fmt.Sprintf("%s/%s: hunk", tk.KeyFor(task.BindingPrevHunk), tk.KeyFor(task.BindingNextHunk)))
+	}
+	if _, ok := tk.Scheme().(task.Checklist); ok {
+		second = append(second, fmt.Sprintf("%s/%s: criterion", tk.KeyFor(task.BindingPrevCriterion), tk.KeyFor(task.BindingNextCriterion)))
+	}
+	if len(m.panes) > 1 {
+		second = append(second, tk.KeyFor(task.BindingSwitchPane)+": switch pane")
+	}
+	return mutedStyle.Render(first + "\n" + strings.Join(second, " · "))
 }
 
-func (m Model) labelLegend() string {
-	sc, _ := m.session.Task().Scheme().(task.SingleChoice)
-	var parts []string
-	for _, l := range sc.Labels() {
+func (m Model) hasHunks() bool {
+	for _, p := range m.panes {
+		if p.hunks.Len() > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// answerSection shows the keys of the task's scheme: the labels, or the
+// answers above the criteria and the verdict they lead to.
+func (m Model) answerSection() string {
+	switch s := m.session.Task().Scheme().(type) {
+	case task.SingleChoice:
+		return legend(s.Labels())
+	case task.Checklist:
+		return m.checklistView(s)
+	}
+	return ""
+}
+
+func (m Model) checklistView(c task.Checklist) string {
+	answers := m.session.CurrentState().Answers
+	criteria := c.Criteria()
+	titleWidth := 0
+	for _, cr := range criteria {
+		titleWidth = max(titleWidth, lipgloss.Width(cr.Title))
+	}
+	lines := []string{legend(c.Answers())}
+	for i, cr := range criteria {
+		marker := "  "
+		if i == m.session.Focus() {
+			marker = "▶ "
+		}
+		answer, ok := answers[cr.Name]
+		if !ok {
+			answer = mutedStyle.Render("·")
+		}
+		lines = append(lines, fmt.Sprintf("%s%-*s  %s", marker, titleWidth, cr.Title, answer))
+	}
+	lines = append(lines, "verdict: "+c.Verdict(answers).String())
+	return strings.Join(lines, "\n")
+}
+
+func legend(labels []task.Label) string {
+	parts := make([]string, 0, len(labels))
+	for _, l := range labels {
 		parts = append(parts, fmt.Sprintf("[%c] %s", l.Key, l.Name))
 	}
 	return strings.Join(parts, "   ")
 }
 
 func (m Model) stateLine() string {
-	return "state: " + describe(m.session.CurrentState())
+	return "state: " + describe(m.session.Task().Scheme(), m.session.CurrentState())
 }
 
-func describe(s task.State) string {
+func describe(scheme task.Scheme, s task.State) string {
 	switch s.Status {
 	case task.StatusLabeled:
+		if _, ok := scheme.(task.Checklist); ok {
+			return "complete"
+		}
 		return "labeled as " + s.Label
 	case task.StatusHeld:
 		return "held"
 	case task.StatusPending:
+		if c, ok := scheme.(task.Checklist); ok {
+			return fmt.Sprintf("%d of %d answered", len(s.Answers), len(c.Criteria()))
+		}
 		return "pending"
 	}
 	return s.Status.String()

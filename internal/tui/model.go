@@ -3,10 +3,10 @@
 package tui
 
 import (
+	"errors"
 	"fmt"
 
 	"charm.land/bubbles/v2/textinput"
-	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/furedea/rater/internal/render"
@@ -21,6 +21,13 @@ const (
 )
 
 // Model is the Bubble Tea model for one annotation session.
+//
+// The body is one pane, or two side by side when the task asks for it and the
+// terminal is wide enough. Each pane scrolls on its own; the scroll and hunk
+// keys act on the focused pane and switch_pane moves the focus. Panes are not
+// scrolled together because the two fields usually differ in length and kind
+// (a short comment beside a long diff), so line-locked scrolling would pair
+// unrelated lines and stop at the shorter field.
 type Model struct {
 	session *task.Session
 	mode    mode
@@ -28,22 +35,23 @@ type Model struct {
 	width   int
 	height  int
 	status  string
-	body    viewport.Model
-	hunks   render.Hunks
+	panes   []pane
+	focus   int
 	shown   shownBody
 }
 
-// shownBody identifies what the body viewport currently holds.
+// shownBody identifies what the panes currently hold.
 type shownBody struct {
-	itemID string
-	width  int
+	itemID  string
+	width   int
+	columns bool
 }
 
 // New returns a model that drives session.
 func New(session *task.Session) Model {
 	in := textinput.New()
 	in.Prompt = "note> "
-	m := Model{session: session, input: in, width: defaultWidth, height: defaultHeight, body: viewport.New()}
+	m := Model{session: session, input: in, width: defaultWidth, height: defaultHeight}
 	return m.refresh()
 }
 
@@ -105,28 +113,29 @@ func (m Model) updateBrowse(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// apply moves the body viewport. Keys are matched here rather than forwarded
+// apply performs a view binding. Keys are matched here rather than forwarded
 // to the viewport, whose own key map would claim letters used as labels.
 func (m *Model) apply(b task.Binding) {
+	p := &m.panes[m.focus]
 	switch b {
 	case task.BindingScrollUp:
-		m.body.ScrollUp(1)
+		p.lineUp()
 	case task.BindingScrollDown:
-		m.body.ScrollDown(1)
+		p.lineDown()
 	case task.BindingPageUp:
-		m.body.PageUp()
+		p.pageUp()
 	case task.BindingPageDown:
-		m.body.PageDown()
+		p.pageDown()
 	case task.BindingNextHunk:
-		m.jump(m.hunks.Next)
+		p.nextHunk()
 	case task.BindingPrevHunk:
-		m.jump(m.hunks.Prev)
-	}
-}
-
-func (m *Model) jump(find func(offset int) (int, bool)) {
-	if line, ok := find(m.body.YOffset()); ok {
-		m.body.SetYOffset(line)
+		p.prevHunk()
+	case task.BindingPrevCriterion:
+		m.session.FocusPrev()
+	case task.BindingNextCriterion:
+		m.session.FocusNext()
+	case task.BindingSwitchPane:
+		m.focus = (m.focus + 1) % len(m.panes)
 	}
 }
 
@@ -175,27 +184,53 @@ func (m Model) endNote() Model {
 	return m
 }
 
-// refresh re-renders the body when the item or width changed, starting a new
-// item from its top, then fits the viewport between the fixed sections.
+// refresh re-renders the panes when the item, width, or arrangement changed,
+// starting a new item or arrangement from the top, then fits the panes between
+// the fixed sections.
 func (m Model) refresh() Model {
-	want := shownBody{itemID: m.session.Current().ID, width: m.contentWidth()}
+	cols, columns := m.columns()
+	want := shownBody{itemID: m.session.Current().ID, width: m.contentWidth(), columns: columns}
 	if want != m.shown {
-		body, err := render.NewBody(m.session.Task().Fields(), m.session.Current(), want.width)
-		m.body.SetContent(body.Content())
-		m.hunks = body.Hunks()
-		if want.itemID != m.shown.itemID {
-			m.body.GotoTop()
+		rearranged := m.panes == nil || want.columns != m.shown.columns
+		if rearranged {
+			m.panes, m.focus = m.newPanes(columns), 0
 		}
-		if err != nil {
+		fresh := rearranged || want.itemID != m.shown.itemID
+		widths := []int{want.width}
+		if columns {
+			widths = []int{cols.Left, cols.Right}
+		}
+		var errs []error
+		for i := range m.panes {
+			errs = append(errs, m.panes[i].fill(m.session.Current(), widths[i], fresh))
+		}
+		if err := errors.Join(errs...); err != nil {
 			m.status = err.Error()
 		}
 		m.shown = want
 	}
-	m.body.SetWidth(want.width)
-	m.body.SetHeight(m.bodyHeight())
-	// A taller body lowers the largest offset; re-clamp so it stays filled.
-	m.body.SetYOffset(m.body.YOffset())
+	height := m.bodyHeight()
+	for i := range m.panes {
+		m.panes[i].resize(height)
+	}
 	return m
+}
+
+// columns splits the content width for a side-by-side task; it reports false
+// for a stacked task or a terminal too narrow for two columns.
+func (m Model) columns() (render.Columns, bool) {
+	if m.session.Task().Layout() != task.LayoutSideBySide {
+		return render.Columns{}, false
+	}
+	return render.SplitColumns(m.contentWidth())
+}
+
+func (m Model) newPanes(columns bool) []pane {
+	fields := m.session.Task().Fields()
+	if !columns {
+		return []pane{newPane(fields)}
+	}
+	return []pane{newPane(fields[:1]), newPane(fields[1:])}
 }
 
 func errText(err error) string {
