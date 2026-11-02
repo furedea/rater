@@ -6,3 +6,6 @@ import "os"
 
 // lockFile is a no-op where flock is unavailable.
 func lockFile(*os.File) error { return nil }
+
+// waitLock is a no-op where flock is unavailable.
+func waitLock(*os.File) error { return nil }

@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -77,28 +76,59 @@ var ErrOtherAdjudicator = errors.New("task already has another adjudicator")
 
 // OpenAdjudicationLog opens <dir>/adjudications/<adjudicator>.jsonl the way
 // OpenLog opens an annotation log; its records are the adjudicator's decisions.
-// It refuses, before writing anything, when adjudications/ holds a log of
-// anyone else; the same adjudicator can always resume.
+// It refuses, before creating its log, when adjudications/ holds a log of
+// anyone else; the same adjudicator can always resume. The check and the
+// creation run under an exclusive lock on adjudications/, so two adjudicators
+// starting at once on an empty task cannot both pass the check.
 func OpenAdjudicationLog(dir string, who task.Annotator) (*Log, []task.Annotation, error) {
-	others, err := inRoot(dir, func(fsys fs.FS) ([]string, error) {
-		return otherLogOwners(fsys, adjudicationsDir, who)
+	return withRoot(dir, func(root *os.Root) (*Log, []task.Annotation, error) {
+		if err := root.MkdirAll(adjudicationsDir, dirPerm); err != nil {
+			return nil, nil, fmt.Errorf("create %s dir: %w", adjudicationsDir, err)
+		}
+		unlock, err := lockDir(root, adjudicationsDir)
+		if err != nil {
+			return nil, nil, err
+		}
+		defer unlock()
+		others, err := otherLogOwners(root.FS(), adjudicationsDir, who)
+		if err != nil {
+			return nil, nil, err
+		}
+		if len(others) > 0 {
+			return nil, nil, fmt.Errorf("%w: %s (move %s/<name>.jsonl aside to hand over)",
+				ErrOtherAdjudicator, strings.Join(others, ", "), adjudicationsDir)
+		}
+		return openLogIn(root, adjudicationsDir, who)
 	})
+}
+
+// lockDir holds an exclusive lock on logDir until the returned func runs.
+func lockDir(root *os.Root, logDir string) (func(), error) {
+	d, err := root.Open(logDir)
 	if err != nil {
-		return nil, nil, err
+		return nil, fmt.Errorf("open dir %s: %w", logDir, err)
 	}
-	if len(others) > 0 {
-		return nil, nil, fmt.Errorf("%w: %s (move %s/<name>.jsonl aside to hand over)",
-			ErrOtherAdjudicator, strings.Join(others, ", "), adjudicationsDir)
+	if err := waitLock(d); err != nil {
+		return nil, errors.Join(fmt.Errorf("lock dir %s: %w", logDir, err), d.Close())
 	}
-	return openLogAt(dir, adjudicationsDir, who)
+	// Closing releases the lock; a failed close of a read-only handle loses nothing.
+	return func() { _ = d.Close() }, nil
 }
 
 func openLogAt(dir, logDir string, who task.Annotator) (*Log, []task.Annotation, error) {
+	return withRoot(dir, func(root *os.Root) (*Log, []task.Annotation, error) {
+		return openLogIn(root, logDir, who)
+	})
+}
+
+// withRoot runs open on dir opened as a root, closing the root afterwards and
+// the log as well when anything failed.
+func withRoot(dir string, open func(*os.Root) (*Log, []task.Annotation, error)) (*Log, []task.Annotation, error) {
 	root, err := os.OpenRoot(dir)
 	if err != nil {
 		return nil, nil, fmt.Errorf("open dir %s: %w", dir, err)
 	}
-	l, prior, err := openLogIn(root, logDir, who)
+	l, prior, err := open(root)
 	if closeErr := root.Close(); closeErr != nil {
 		err = errors.Join(err, fmt.Errorf("close dir %s: %w", dir, closeErr))
 	}
