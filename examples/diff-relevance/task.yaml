@@ -4,10 +4,16 @@ header: [repo, pr, stratum]
 fields:
   - name: guideline
     title: Guideline
+    render: text
   - name: diff
     title: Diff
+    render: diff
 labels:
   - {key: c, name: relevant-conforming}
   - {key: v, name: relevant-violating}
   - {key: u, name: unrelated}
   - {key: "?", name: unsure}
+# Optional; these are the defaults. Keys must not collide with label keys.
+keys:
+  next_hunk: "]"
+  prev_hunk: "["

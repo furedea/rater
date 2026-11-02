@@ -33,7 +33,11 @@ func TestParseTask(t *testing.T) {
 		{"explicit stacked text", "name: x\nlayout: stacked\nfields: [{name: a, render: text}]\nlabels: [{key: y, name: yes}]\n", ""},
 		{"unknown top-level key", validTaskYAML + "colour: red\n", "colour"},
 		{"unsupported layout", "name: x\nlayout: side-by-side\nfields: [{name: a}]\nlabels: [{key: y, name: yes}]\n", "unsupported layout"},
-		{"unsupported render", "name: x\nfields: [{name: a, render: diff}]\nlabels: [{key: y, name: yes}]\n", "unsupported render"},
+		{"unsupported render", "name: x\nfields: [{name: a, render: html}]\nlabels: [{key: y, name: yes}]\n", "unsupported render"},
+		{"language on text field", "name: x\nfields: [{name: a, language: go}]\nlabels: [{key: y, name: yes}]\n", "language"},
+		{"unknown code language", "name: x\nfields: [{name: a, render: code, language: nosuchlang}]\nlabels: [{key: y, name: yes}]\n", "unknown language"},
+		{"unknown key binding", "name: x\nfields: [{name: a}]\nlabels: [{key: y, name: yes}]\nkeys: {jump: j}\n", "jump"},
+		{"binding collides with label", "name: x\nfields: [{name: a}]\nlabels: [{key: j, name: yes}]\nkeys: {scroll_down: j}\n", "collides"},
 		{"multi-char key", "name: x\nfields: [{name: a}]\nlabels: [{key: yy, name: yes}]\n", "one character"},
 		{"empty key", "name: x\nfields: [{name: a}]\nlabels: [{name: yes}]\n", "one character"},
 		{"duplicate keys", "name: x\nfields: [{name: a}]\nlabels: [{key: y, name: yes}, {key: y, name: no}]\n", "duplicate label key"},
@@ -59,6 +63,28 @@ func TestParseTaskDefaults(t *testing.T) {
 	assert.Equal(t, task.LayoutStacked, tk.Layout())
 	assert.Equal(t, []task.Field{{Name: "a", Title: "Comment A"}, {Name: "b", Title: "b"}}, tk.Fields())
 	assert.Equal(t, []string{"repo"}, tk.Header())
+}
+
+func TestParseTaskRenders(t *testing.T) {
+	const doc = `name: x
+fields:
+  - {name: d, render: diff}
+  - {name: c, render: code, language: go, language_field: lang}
+  - {name: m, render: markdown}
+labels: [{key: y, name: yes}]
+keys: {next_hunk: n, prev_hunk: p}
+`
+	tk, err := store.ParseTask([]byte(doc))
+	require.NoError(t, err)
+
+	assert.Equal(t, []task.Field{
+		{Name: "d", Title: "d", Render: task.RenderDiff},
+		{Name: "c", Title: "c", Render: task.RenderCode, Language: "go", LanguageField: "lang"},
+		{Name: "m", Title: "m", Render: task.RenderMarkdown},
+	}, tk.Fields())
+	assert.Equal(t, "n", tk.KeyFor(task.BindingNextHunk))
+	assert.Equal(t, "p", tk.KeyFor(task.BindingPrevHunk))
+	assert.Equal(t, "down", tk.KeyFor(task.BindingScrollDown))
 }
 
 func TestParseItems(t *testing.T) {

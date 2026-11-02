@@ -25,27 +25,50 @@ func (l Layout) String() string {
 	return fmt.Sprintf("Layout(%d)", int(l))
 }
 
-// Render says how a field's text is displayed. Later milestones add diff and code.
+// Render says how a field's text is displayed.
 type Render int
 
 // Renders.
 const (
 	RenderText Render = iota
+	RenderDiff
+	RenderCode
+	RenderMarkdown
 )
 
 func (r Render) String() string {
 	switch r {
 	case RenderText:
 		return "text"
+	case RenderDiff:
+		return "diff"
+	case RenderCode:
+		return "code"
+	case RenderMarkdown:
+		return "markdown"
 	}
 	return fmt.Sprintf("Render(%d)", int(r))
 }
 
-// Field is one item field shown to the annotator.
+// ParseRender is the inverse of Render.String.
+func ParseRender(s string) (Render, error) {
+	for _, r := range []Render{RenderText, RenderDiff, RenderCode, RenderMarkdown} {
+		if r.String() == s {
+			return r, nil
+		}
+	}
+	return 0, fmt.Errorf("unknown render %q", s)
+}
+
+// Field is one item field shown to the annotator. Language and LanguageField
+// apply to code only: the item's LanguageField value, when present, overrides
+// Language.
 type Field struct {
-	Name   string
-	Title  string
-	Render Render
+	Name          string
+	Title         string
+	Render        Render
+	Language      string
+	LanguageField string
 }
 
 // Label is one single-choice answer bound to a key.
@@ -61,6 +84,7 @@ type Task struct {
 	header []string
 	fields []Field
 	labels []Label
+	keys   Keys
 }
 
 // Spec is the unvalidated input from which a Task is built.
@@ -70,6 +94,8 @@ type Spec struct {
 	Header []string
 	Fields []Field
 	Labels []Label
+	// Keys overrides the default key of each listed binding.
+	Keys map[Binding]string
 }
 
 // ErrInvalidTask wraps every validation failure of a task definition.
@@ -86,12 +112,17 @@ func NewTask(spec Spec) (Task, error) {
 	if err := validateLabels(spec.Labels); err != nil {
 		return Task{}, err
 	}
+	keys, err := newKeys(spec.Keys, spec.Labels)
+	if err != nil {
+		return Task{}, err
+	}
 	return Task{
 		name:   spec.Name,
 		layout: spec.Layout,
 		header: append([]string(nil), spec.Header...),
 		fields: append([]Field(nil), spec.Fields...),
 		labels: append([]Label(nil), spec.Labels...),
+		keys:   keys,
 	}, nil
 }
 
@@ -120,6 +151,12 @@ func (t Task) LabelByKey(key rune) (Label, bool) {
 	return Label{}, false
 }
 
+// BindingFor finds the view binding triggered by key.
+func (t Task) BindingFor(key string) (Binding, bool) { return t.keys.bindingFor(key) }
+
+// KeyFor returns the key that triggers b.
+func (t Task) KeyFor(b Binding) string { return t.keys[b] }
+
 // HasLabel reports whether name is a configured label name.
 func (t Task) HasLabel(name string) bool {
 	for _, l := range t.labels {
@@ -143,6 +180,19 @@ func validateFields(fields []Field) error {
 			return invalidTask("duplicate field %q", f.Name)
 		}
 		seen[f.Name] = true
+		if err := validateLanguage(f); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateLanguage(f Field) error {
+	if f.Render != RenderCode && (f.Language != "" || f.LanguageField != "") {
+		return invalidTask("field %q sets a language but renders as %s", f.Name, f.Render)
+	}
+	if f.LanguageField == f.Name {
+		return invalidTask("field %q takes its language from itself", f.Name)
 	}
 	return nil
 }
