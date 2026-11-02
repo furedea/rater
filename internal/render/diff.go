@@ -1,7 +1,6 @@
 package render
 
 import (
-	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -18,22 +17,6 @@ const (
 	LineHunkHeader
 	LineFileHeader
 )
-
-func (k LineKind) String() string {
-	switch k {
-	case LineContext:
-		return "context"
-	case LineAdded:
-		return "added"
-	case LineRemoved:
-		return "removed"
-	case LineHunkHeader:
-		return "hunk-header"
-	case LineFileHeader:
-		return "file-header"
-	}
-	return fmt.Sprintf("LineKind(%d)", int(k))
-}
 
 // DiffLine is one classified line of a unified diff.
 type DiffLine struct {
