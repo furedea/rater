@@ -11,31 +11,33 @@ import (
 	"github.com/furedea/rater/internal/tui"
 )
 
-type annotateOptions struct {
-	taskDir   string
-	annotator task.Annotator
+// sessionOptions names the task directory and the person working on it.
+type sessionOptions struct {
+	taskDir string
+	who     task.Annotator
 }
 
-func parseAnnotateArgs(args []string) (annotateOptions, error) {
-	fs := flag.NewFlagSet("annotate", flag.ContinueOnError)
+// parseSessionArgs parses the --task and --as flags of an interactive command.
+func parseSessionArgs(command string, args []string) (sessionOptions, error) {
+	fs := flag.NewFlagSet(command, flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	taskDir := fs.String("task", "", "task directory containing task.yaml and items.jsonl")
-	as := fs.String("as", "", "annotator name")
+	as := fs.String("as", "", "your name, which names your log")
 	if err := fs.Parse(args); err != nil {
-		return annotateOptions{}, fmt.Errorf("parse flags: %w", err)
+		return sessionOptions{}, fmt.Errorf("parse flags: %w", err)
 	}
 	if *taskDir == "" {
-		return annotateOptions{}, errors.New("--task is required")
+		return sessionOptions{}, errors.New("--task is required")
 	}
 	who, err := task.NewAnnotator(*as)
 	if err != nil {
-		return annotateOptions{}, fmt.Errorf("--as: %w", err)
+		return sessionOptions{}, fmt.Errorf("--as: %w", err)
 	}
-	return annotateOptions{taskDir: *taskDir, annotator: who}, nil
+	return sessionOptions{taskDir: *taskDir, who: who}, nil
 }
 
 func runAnnotate(args []string) (err error) {
-	opts, err := parseAnnotateArgs(args)
+	opts, err := parseSessionArgs("annotate", args)
 	if err != nil {
 		return err
 	}
@@ -43,7 +45,7 @@ func runAnnotate(args []string) (err error) {
 	if err != nil {
 		return err
 	}
-	log, prior, err := store.OpenLog(opts.taskDir, opts.annotator)
+	log, prior, err := store.OpenLog(opts.taskDir, opts.who)
 	if err != nil {
 		return err
 	}

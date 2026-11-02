@@ -40,6 +40,34 @@ every compared value is the same category, is shown as `n/a` with the reason (`n
 `undefined` field in JSON). Weighted kappa, ordinal or interval alpha, and confidence intervals
 are not computed. `agree` takes no lock, so it can run while others annotate.
 
+## Adjudication
+
+```
+rater adjudicate --task <dir> --as <adjudicator>
+```
+
+`adjudicate` compares the annotators' latest labels the way `agree` does and shows only the
+items they disagree on: at least two annotators completed the item and their labels, or for a
+checklist their answers to some criterion, differ. Held items and incomplete checklists count as
+missing, so an item that fewer than two annotators completed is neither shown nor written to
+gold. Each annotator's label (or answers per criterion, with their verdict) and note appear next
+to the item; the header shows `resolved n / total`.
+
+The adjudicator answers with the same keys as `annotate`: a label or one answer per criterion
+(the verdict follows from the task's rule), `tab` to hold, `ctrl+n` for a note, and `ctrl+u` to
+undo. Decisions are appended to `adjudications/<adjudicator>.jsonl` as they happen, so a later run
+resumes at the first undecided disagreement.
+
+On quit, `gold.jsonl` is rewritten from the logs, one line per item in `items.jsonl` order:
+
+- `"source": "agreed"` for an item every completing annotator answered the same way.
+- `"source": "adjudicated"` for a disagreement the adjudicator decided, with `adjudicator` and
+  `note`.
+
+Each line carries `label`, or `answers` and `verdict`, and `annotations`: every annotator's
+status, answer, note, and `records`, the number of lines of their append-only log that were
+replayed, so the compared annotations can be found again. Undecided disagreements are left out.
+
 ## Layout
 
 `layout: stacked` (default) shows the fields one under another. `layout: side-by-side` shows

@@ -1,7 +1,9 @@
 # Examples
 
 Run one with `rater annotate --task examples/<name> --as <annotator>`. Annotations are appended
-to `examples/<name>/annotations/<annotator>.jsonl`, which is ignored by git.
+to `examples/<name>/annotations/<annotator>.jsonl`, which is ignored by git. With two or more
+annotators, `rater adjudicate --task examples/<name> --as <adjudicator>` resolves their
+disagreements into `adjudications/` and `gold.jsonl`, which are ignored as well.
 
 | Task                   | Shown as                                                      |
 | ---------------------- | ------------------------------------------------------------- |
