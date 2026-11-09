@@ -45,6 +45,8 @@ func newSession(t *testing.T, prior []task.Annotation, ids ...string) (*task.Ses
 }
 
 func TestSessionChooseRecordsAndAdvances(t *testing.T) {
+	t.Parallel()
+
 	s, rec := newSession(t, nil, "1", "2")
 
 	require.NoError(t, s.Choose('s'))
@@ -56,6 +58,8 @@ func TestSessionChooseRecordsAndAdvances(t *testing.T) {
 }
 
 func TestSessionStateOfAnyItemFollowsRecords(t *testing.T) {
+	t.Parallel()
+
 	s, _ := newSession(t, []task.Annotation{{ItemID: "2", Action: task.ActionLabel, Label: "distinct"}}, "1", "2")
 
 	require.NoError(t, s.Choose('s'))
@@ -65,6 +69,8 @@ func TestSessionStateOfAnyItemFollowsRecords(t *testing.T) {
 }
 
 func TestSessionChooseUnknownKey(t *testing.T) {
+	t.Parallel()
+
 	s, rec := newSession(t, nil, "1")
 
 	err := s.Choose('x')
@@ -74,6 +80,8 @@ func TestSessionChooseUnknownKey(t *testing.T) {
 }
 
 func TestSessionRecorderFailureLeavesStateUntouched(t *testing.T) {
+	t.Parallel()
+
 	s, rec := newSession(t, nil, "1", "2")
 	rec.err = errors.New("disk full")
 
@@ -85,6 +93,8 @@ func TestSessionRecorderFailureLeavesStateUntouched(t *testing.T) {
 }
 
 func TestSessionHoldAndNote(t *testing.T) {
+	t.Parallel()
+
 	s, _ := newSession(t, nil, "1", "2")
 
 	require.NoError(t, s.SetNote("odd"))
@@ -95,6 +105,8 @@ func TestSessionHoldAndNote(t *testing.T) {
 }
 
 func TestSessionNoteSurvivesRelabel(t *testing.T) {
+	t.Parallel()
+
 	s, _ := newSession(t, nil, "1")
 
 	require.NoError(t, s.SetNote("why"))
@@ -104,6 +116,8 @@ func TestSessionNoteSurvivesRelabel(t *testing.T) {
 }
 
 func TestSessionUndo(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name      string
 		act       func(*task.Session) error
@@ -131,6 +145,8 @@ func TestSessionUndo(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			s, rec := newSession(t, nil, "1", "2")
 			if tt.wantState.Status == task.StatusLabeled {
 				require.NoError(t, s.Choose('s'))
@@ -148,6 +164,8 @@ func TestSessionUndo(t *testing.T) {
 }
 
 func TestSessionUndoIsGlobalAndRepeatable(t *testing.T) {
+	t.Parallel()
+
 	s, _ := newSession(t, nil, "1", "2", "3")
 	require.NoError(t, s.Choose('s'))
 	require.NoError(t, s.Choose('d'))
@@ -162,6 +180,8 @@ func TestSessionUndoIsGlobalAndRepeatable(t *testing.T) {
 }
 
 func TestSessionNavigationStaysInRange(t *testing.T) {
+	t.Parallel()
+
 	s, _ := newSession(t, nil, "1", "2")
 
 	s.Prev()
@@ -175,6 +195,8 @@ func TestSessionNavigationStaysInRange(t *testing.T) {
 }
 
 func TestSessionResume(t *testing.T) {
+	t.Parallel()
+
 	label := func(id string) task.Annotation {
 		return task.Annotation{ItemID: id, Action: task.ActionLabel, Label: "same"}
 	}
@@ -195,6 +217,8 @@ func TestSessionResume(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			s, _ := newSession(t, tt.prior, "1", "2", "3")
 
 			assert.Equal(t, tt.wantCurrent, s.Current().ID)
@@ -204,6 +228,8 @@ func TestSessionResume(t *testing.T) {
 }
 
 func TestSessionResumeThenUndoUsesReplayedTrail(t *testing.T) {
+	t.Parallel()
+
 	prior := []task.Annotation{
 		{ItemID: "1", Action: task.ActionLabel, Label: "same"},
 		{ItemID: "2", Action: task.ActionLabel, Label: "same"},
@@ -216,6 +242,8 @@ func TestSessionResumeThenUndoUsesReplayedTrail(t *testing.T) {
 }
 
 func TestReplayLogChecksRecordsAgainstTheWorkspace(t *testing.T) {
+	t.Parallel()
+
 	ws := newWorkspace(t, "1")
 	tests := []struct {
 		name    string
@@ -227,6 +255,8 @@ func TestReplayLogChecksRecordsAgainstTheWorkspace(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			_, err := task.ReplayLog(ws, tt.records)
 
 			assert.ErrorIs(t, err, tt.wantErr)
@@ -235,6 +265,8 @@ func TestReplayLogChecksRecordsAgainstTheWorkspace(t *testing.T) {
 }
 
 func TestReplayLogDerivesLatestState(t *testing.T) {
+	t.Parallel()
+
 	ws := newWorkspace(t, "1")
 
 	h, err := task.ReplayLog(ws, []task.Annotation{
@@ -248,6 +280,8 @@ func TestReplayLogDerivesLatestState(t *testing.T) {
 }
 
 func TestNewSessionRejectsUnknownItemInLog(t *testing.T) {
+	t.Parallel()
+
 	prior := []task.Annotation{{ItemID: "ghost", Action: task.ActionHold}}
 
 	_, err := task.NewSession(newWorkspace(t, "1"), prior, &fakeRecorder{})

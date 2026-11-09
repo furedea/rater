@@ -14,6 +14,8 @@ import (
 )
 
 func TestParseKeyringMapsEachKeyToItsAnnotator(t *testing.T) {
+	t.Parallel()
+
 	alice1, alice2, bob := newSigner(t), newSigner(t), newSigner(t)
 	data := strings.Join([]string{
 		"# annotators of the pilot study",
@@ -37,6 +39,8 @@ func TestParseKeyringMapsEachKeyToItsAnnotator(t *testing.T) {
 }
 
 func TestKeyringDoesNotKnowUnregisteredKeys(t *testing.T) {
+	t.Parallel()
+
 	keys, err := server.ParseKeyring([]byte(keyLine("alice", newSigner(t))))
 	require.NoError(t, err)
 
@@ -46,6 +50,8 @@ func TestKeyringDoesNotKnowUnregisteredKeys(t *testing.T) {
 }
 
 func TestParseKeyringRejectsInvalidFiles(t *testing.T) {
+	t.Parallel()
+
 	a, b := newSigner(t), newSigner(t)
 	tests := []struct {
 		name string

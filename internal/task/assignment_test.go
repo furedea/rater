@@ -10,6 +10,8 @@ import (
 )
 
 func TestAssignmentSelectsItemsPerAnnotator(t *testing.T) {
+	t.Parallel()
+
 	split := &task.SplitSpec{Annotators: []string{"alice", "bob", "carol"}, Copies: 2}
 	tests := []struct {
 		name string
@@ -41,6 +43,8 @@ func TestAssignmentSelectsItemsPerAnnotator(t *testing.T) {
 }
 
 func TestNewAssignmentRejectsInvalidSpecs(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name string
 		spec task.AssignmentSpec
@@ -69,6 +73,8 @@ func TestNewAssignmentRejectsInvalidSpecs(t *testing.T) {
 }
 
 func TestAssignedSessionResumesOnlyAssignedItems(t *testing.T) {
+	t.Parallel()
+
 	plan, err := task.NewAssignment(newWorkspace(t, "1", "2", "3"),
 		task.AssignmentSpec{Items: map[string][]string{"dave": {"2", "3"}}})
 	require.NoError(t, err)
@@ -88,6 +94,8 @@ func TestAssignedSessionResumesOnlyAssignedItems(t *testing.T) {
 }
 
 func TestAssignedSessionStillRejectsRecordsAboutUnknownItems(t *testing.T) {
+	t.Parallel()
+
 	plan, err := task.NewAssignment(newWorkspace(t, "1", "2"),
 		task.AssignmentSpec{Items: map[string][]string{"dave": {"2"}}})
 	require.NoError(t, err)

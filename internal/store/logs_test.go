@@ -28,6 +28,8 @@ const (
 )
 
 func TestReadLogsReturnsEveryAnnotatorSortedByName(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	writeLog(t, annotationsFile(dir, "bob.jsonl"), bobLine)
 	writeLog(t, annotationsFile(dir, "alice.jsonl"), aliceLine)
@@ -44,6 +46,8 @@ func TestReadLogsReturnsEveryAnnotatorSortedByName(t *testing.T) {
 }
 
 func TestReadLogReadsOneAnnotator(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	writeLog(t, annotationsFile(dir, "bob.jsonl"), bobLine)
 	writeLog(t, annotationsFile(dir, "carol.jsonl"), "{corrupt}\n")
@@ -56,6 +60,8 @@ func TestReadLogReadsOneAnnotator(t *testing.T) {
 }
 
 func TestReadLogOfAnAnnotatorWithoutALogFails(t *testing.T) {
+	t.Parallel()
+
 	_, err := store.ReadLog(t.TempDir(), mustAnnotator(t, "dave"))
 
 	assert.ErrorIs(t, err, store.ErrNoLog)
@@ -69,6 +75,8 @@ func mustAnnotator(t *testing.T, name string) task.Annotator {
 }
 
 func TestReadLogsWithoutAnnotationsIsEmpty(t *testing.T) {
+	t.Parallel()
+
 	logs, err := store.ReadLogs(t.TempDir())
 
 	require.NoError(t, err)
@@ -78,6 +86,8 @@ func TestReadLogsWithoutAnnotationsIsEmpty(t *testing.T) {
 // An annotator may be writing while agreement is read: a torn final line is
 // skipped, and the file is left alone for its writer to recover.
 func TestReadLogsSkipsTornTailWithoutTouchingTheFile(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	content := bobLine + `{"item":"2","annot`
 	path := writeLog(t, annotationsFile(dir, "bob.jsonl"), content)
@@ -93,6 +103,8 @@ func TestReadLogsSkipsTornTailWithoutTouchingTheFile(t *testing.T) {
 }
 
 func TestReadLogsRejectsBadLogs(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		file    string
@@ -104,6 +116,8 @@ func TestReadLogsRejectsBadLogs(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			dir := t.TempDir()
 			writeLog(t, annotationsFile(dir, tt.file), tt.content)
 

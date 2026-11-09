@@ -19,6 +19,8 @@ func validSpec() task.Spec {
 }
 
 func TestNewTask(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		mutate  func(*task.Spec)
@@ -38,6 +40,8 @@ func TestNewTask(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			spec := validSpec()
 			spec.Fields = append([]task.Field(nil), spec.Fields...)
 			spec.Labels = append([]task.Label(nil), spec.Labels...)
@@ -54,6 +58,8 @@ func TestNewTask(t *testing.T) {
 }
 
 func TestNewTaskSideBySideNeedsTwoFields(t *testing.T) {
+	t.Parallel()
+
 	two := []task.Field{{Name: "a"}, {Name: "b"}}
 	tests := []struct {
 		name    string
@@ -66,6 +72,8 @@ func TestNewTaskSideBySideNeedsTwoFields(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			spec := validSpec()
 			spec.Layout = task.LayoutSideBySide
 			spec.Fields = tt.fields
@@ -84,6 +92,8 @@ func TestNewTaskSideBySideNeedsTwoFields(t *testing.T) {
 }
 
 func TestParseLayout(t *testing.T) {
+	t.Parallel()
+
 	for _, l := range []task.Layout{task.LayoutStacked, task.LayoutSideBySide} {
 		got, err := task.ParseLayout(l.String())
 		require.NoError(t, err)
@@ -94,6 +104,8 @@ func TestParseLayout(t *testing.T) {
 }
 
 func TestTaskLabelLookup(t *testing.T) {
+	t.Parallel()
+
 	tk, err := task.NewTask(validSpec())
 	require.NoError(t, err)
 
@@ -109,6 +121,8 @@ func TestTaskLabelLookup(t *testing.T) {
 }
 
 func TestNewWorkspace(t *testing.T) {
+	t.Parallel()
+
 	tk, err := task.NewTask(validSpec())
 	require.NoError(t, err)
 	item := func(id string, kv ...string) task.Item {
@@ -131,6 +145,8 @@ func TestNewWorkspace(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			_, err := task.NewWorkspace(tk, tt.items)
 			if tt.wantErr == "" {
 				require.NoError(t, err)
@@ -143,6 +159,8 @@ func TestNewWorkspace(t *testing.T) {
 }
 
 func TestNewTaskFieldRender(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		field   task.Field
@@ -158,6 +176,8 @@ func TestNewTaskFieldRender(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			spec := validSpec()
 			spec.Fields = []task.Field{tt.field}
 			_, err := task.NewTask(spec)
@@ -172,6 +192,8 @@ func TestNewTaskFieldRender(t *testing.T) {
 }
 
 func TestParseRender(t *testing.T) {
+	t.Parallel()
+
 	for _, r := range []task.Render{task.RenderText, task.RenderDiff, task.RenderCode, task.RenderMarkdown} {
 		got, err := task.ParseRender(r.String())
 		require.NoError(t, err)
@@ -182,6 +204,8 @@ func TestParseRender(t *testing.T) {
 }
 
 func TestTaskKeysDefaults(t *testing.T) {
+	t.Parallel()
+
 	tk, err := task.NewTask(validSpec())
 	require.NoError(t, err)
 
@@ -201,6 +225,8 @@ func TestTaskKeysDefaults(t *testing.T) {
 }
 
 func TestTaskKeysOverride(t *testing.T) {
+	t.Parallel()
+
 	spec := validSpec()
 	spec.Keys = map[task.Binding]string{task.BindingNextHunk: "ctrl+j"}
 	tk, err := task.NewTask(spec)
@@ -215,6 +241,8 @@ func TestTaskKeysOverride(t *testing.T) {
 }
 
 func TestNewTaskKeyCollisions(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		keys    map[task.Binding]string
@@ -229,6 +257,8 @@ func TestNewTaskKeyCollisions(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			spec := validSpec()
 			spec.Keys = tt.keys
 			if tt.labels != nil {
@@ -242,6 +272,8 @@ func TestNewTaskKeyCollisions(t *testing.T) {
 }
 
 func TestParseBinding(t *testing.T) {
+	t.Parallel()
+
 	for _, b := range task.Bindings() {
 		got, err := task.ParseBinding(b.String())
 		require.NoError(t, err)

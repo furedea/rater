@@ -10,6 +10,8 @@ import (
 )
 
 func TestParseSessionArgs(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		args    []string
@@ -23,6 +25,8 @@ func TestParseSessionArgs(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			opts, err := parseSessionArgs("annotate", tt.args)
 			if tt.wantErr != "" {
 				assert.ErrorContains(t, err, tt.wantErr)
@@ -36,6 +40,8 @@ func TestParseSessionArgs(t *testing.T) {
 }
 
 func TestRunRejectsBadSubcommand(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name string
 		args []string
@@ -45,12 +51,16 @@ func TestRunRejectsBadSubcommand(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			assert.ErrorIs(t, run(tt.args, io.Discard), errUsage)
 		})
 	}
 }
 
 func TestRunPrintsVersion(t *testing.T) {
+	t.Parallel()
+
 	var out bytes.Buffer
 
 	require.NoError(t, run([]string{"--version"}, &out))

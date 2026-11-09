@@ -49,6 +49,8 @@ func readGoldLines(t *testing.T, dir string) []map[string]any {
 func adjudicateArgs(dir string) []string { return []string{"--task", dir, "--as", "dave"} }
 
 func TestAdjudicateWritesGoldOnQuit(t *testing.T) {
+	t.Parallel()
+
 	dir := taskDir(t, pairsTask, pairsLogs())
 	var started []string
 
@@ -69,6 +71,8 @@ func TestAdjudicateWritesGoldOnQuit(t *testing.T) {
 }
 
 func TestAdjudicateResumesFromTheAdjudicationLog(t *testing.T) {
+	t.Parallel()
+
 	dir := taskDir(t, pairsTask, pairsLogs())
 	var started []string
 	require.NoError(t, adjudicate(adjudicateArgs(dir), choosing(&started, 's'), &bytes.Buffer{}))
@@ -84,6 +88,8 @@ func TestAdjudicateResumesFromTheAdjudicationLog(t *testing.T) {
 }
 
 func TestAdjudicateReopensADecisionWhoseAnnotationsChanged(t *testing.T) {
+	t.Parallel()
+
 	dir := taskDir(t, pairsTask, pairsLogs())
 	var started []string
 	require.NoError(t, adjudicate(adjudicateArgs(dir), choosing(&started, 's'), &bytes.Buffer{}))
@@ -103,6 +109,8 @@ func TestAdjudicateReopensADecisionWhoseAnnotationsChanged(t *testing.T) {
 }
 
 func TestAdjudicateWritesGoldEvenWhenTheScreenFails(t *testing.T) {
+	t.Parallel()
+
 	dir := taskDir(t, pairsTask, pairsLogs())
 	broken := func(s *task.Session, _ adjudication.Docket) error {
 		require.NoError(t, s.Choose('s'))
@@ -116,6 +124,8 @@ func TestAdjudicateWritesGoldEvenWhenTheScreenFails(t *testing.T) {
 }
 
 func TestAdjudicateWithoutDisagreementsWritesAgreedGold(t *testing.T) {
+	t.Parallel()
+
 	dir := taskDir(t, pairsTask, map[string]string{
 		"alice": logOf("label 1 same", "label 2 distinct"),
 		"bob":   logOf("label 1 same", "label 2 distinct"),
@@ -133,6 +143,8 @@ func TestAdjudicateWithoutDisagreementsWritesAgreedGold(t *testing.T) {
 }
 
 func TestAdjudicateRejects(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		logs    map[string]string
@@ -144,6 +156,8 @@ func TestAdjudicateRejects(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			dir := taskDir(t, pairsTask, tt.logs)
 
 			err := adjudicate(tt.args(dir), choosing(new([]string)), &bytes.Buffer{})
@@ -154,6 +168,8 @@ func TestAdjudicateRejects(t *testing.T) {
 }
 
 func TestAdjudicateRefusesASecondAdjudicatorWithoutTouchingGold(t *testing.T) {
+	t.Parallel()
+
 	dir := taskDir(t, pairsTask, pairsLogs())
 	var started []string
 	require.NoError(t, adjudicate([]string{"--task", dir, "--as", "carol"}, choosing(&started, 's'), &bytes.Buffer{}))
@@ -173,6 +189,8 @@ func TestAdjudicateRefusesASecondAdjudicatorWithoutTouchingGold(t *testing.T) {
 }
 
 func TestAdjudicateHelpStatesTheOneAdjudicatorRule(t *testing.T) {
+	t.Parallel()
+
 	var out bytes.Buffer
 
 	require.NoError(t, adjudicate([]string{"--help"}, choosing(new([]string)), &out))

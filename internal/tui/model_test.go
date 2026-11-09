@@ -113,6 +113,8 @@ func (h *harness) replay(t *testing.T) *task.History {
 }
 
 func TestLabelAdvancesAndPersists(t *testing.T) {
+	t.Parallel()
+
 	h := start(t)
 
 	h.tm.Type("s")
@@ -127,6 +129,8 @@ func TestLabelAdvancesAndPersists(t *testing.T) {
 }
 
 func TestUndoRevertsLastLabel(t *testing.T) {
+	t.Parallel()
+
 	h := start(t)
 
 	h.tm.Type("s")
@@ -139,6 +143,8 @@ func TestUndoRevertsLastLabel(t *testing.T) {
 }
 
 func TestHoldAndNavigation(t *testing.T) {
+	t.Parallel()
+
 	h := start(t)
 
 	h.tm.Send(keyTab)
@@ -151,6 +157,8 @@ func TestHoldAndNavigation(t *testing.T) {
 }
 
 func TestNoteEntry(t *testing.T) {
+	t.Parallel()
+
 	h := start(t)
 
 	h.tm.Send(keyNote)
@@ -163,6 +171,8 @@ func TestNoteEntry(t *testing.T) {
 }
 
 func TestNoteAcceptsPaste(t *testing.T) {
+	t.Parallel()
+
 	h := start(t)
 
 	h.tm.Send(keyNote)
@@ -174,6 +184,8 @@ func TestNoteAcceptsPaste(t *testing.T) {
 }
 
 func TestNoteEscapeCancels(t *testing.T) {
+	t.Parallel()
+
 	h := start(t)
 
 	h.tm.Send(keyNote)
@@ -186,6 +198,8 @@ func TestNoteEscapeCancels(t *testing.T) {
 }
 
 func TestScreenShowsFieldsMetadataAndLabels(t *testing.T) {
+	t.Parallel()
+
 	h := start(t)
 
 	screen := h.finish(t)
@@ -213,6 +227,8 @@ func startLongBody(t *testing.T) *harness {
 }
 
 func TestLongBodyStartsAtTop(t *testing.T) {
+	t.Parallel()
+
 	h := startLongBody(t)
 
 	screen := h.finish(t)
@@ -223,7 +239,11 @@ func TestLongBodyStartsAtTop(t *testing.T) {
 }
 
 func TestScrollKeysMoveTheBody(t *testing.T) {
+	t.Parallel()
+
 	t.Run("line down", func(t *testing.T) {
+		t.Parallel()
+
 		h := startLongBody(t)
 
 		h.tm.Send(keyDown)
@@ -234,6 +254,8 @@ func TestScrollKeysMoveTheBody(t *testing.T) {
 		assert.Contains(t, screen, "line 02")
 	})
 	t.Run("page down to the end", func(t *testing.T) {
+		t.Parallel()
+
 		h := startLongBody(t)
 
 		for range 15 {
@@ -247,6 +269,8 @@ func TestScrollKeysMoveTheBody(t *testing.T) {
 }
 
 func TestGrowingTheTerminalKeepsTheBodyFilled(t *testing.T) {
+	t.Parallel()
+
 	h := startLongBody(t)
 
 	for range 15 {
@@ -260,6 +284,8 @@ func TestGrowingTheTerminalKeepsTheBodyFilled(t *testing.T) {
 }
 
 func TestScrollingDoesNotLabel(t *testing.T) {
+	t.Parallel()
+
 	h := startLongBody(t)
 
 	h.tm.Send(keyPgDn)
@@ -271,6 +297,8 @@ func TestScrollingDoesNotLabel(t *testing.T) {
 }
 
 func TestNextItemShowsItsBodyFromTheTop(t *testing.T) {
+	t.Parallel()
+
 	h := startLongBody(t)
 
 	h.tm.Send(keyPgDn)
@@ -302,7 +330,11 @@ func startDiff(t *testing.T) *harness {
 }
 
 func TestHunkKeysJumpBetweenHunks(t *testing.T) {
+	t.Parallel()
+
 	t.Run("forward twice reaches the second hunk", func(t *testing.T) {
+		t.Parallel()
+
 		h := startDiff(t)
 
 		h.tm.Type("]]")
@@ -313,6 +345,8 @@ func TestHunkKeysJumpBetweenHunks(t *testing.T) {
 		assert.NotContains(t, screen, "@@ -40,10")
 	})
 	t.Run("back returns to the first hunk", func(t *testing.T) {
+		t.Parallel()
+
 		h := startDiff(t)
 
 		h.tm.Type("]]]")

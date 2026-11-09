@@ -16,6 +16,8 @@ func complete(answers map[string]string) task.State {
 }
 
 func TestCompareSingleChoiceItem(t *testing.T) {
+	t.Parallel()
+
 	scheme := mustScheme(t, singleChoiceSpec())
 	tests := []struct {
 		name   string
@@ -44,12 +46,16 @@ func TestCompareSingleChoiceItem(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			assert.Equal(t, tt.want, agreement.Compare(scheme, tt.states))
 		})
 	}
 }
 
 func TestCompareChecklistItem(t *testing.T) {
+	t.Parallel()
+
 	scheme := mustScheme(t, checklistSpec())
 	yesYes := map[string]string{"concrete": "yes", "scoped": "yes"}
 	yesNo := map[string]string{"concrete": "yes", "scoped": "no"}
@@ -74,6 +80,8 @@ func TestCompareChecklistItem(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			assert.Equal(t, tt.want, agreement.Compare(scheme, tt.states))
 		})
 	}

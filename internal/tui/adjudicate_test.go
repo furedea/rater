@@ -95,6 +95,8 @@ func (r *adjudicationRun) finish(t *testing.T) string {
 }
 
 func TestAdjudicationShowsEachAnnotatorsLabelAndNote(t *testing.T) {
+	t.Parallel()
+
 	r := startAdjudication(t, t.TempDir(), pairsDocket(t))
 
 	screen := r.finish(t)
@@ -106,6 +108,8 @@ func TestAdjudicationShowsEachAnnotatorsLabelAndNote(t *testing.T) {
 }
 
 func TestAdjudicationResolvesOneDisagreementAndResumes(t *testing.T) {
+	t.Parallel()
+
 	docket := pairsDocket(t)
 	dir := t.TempDir()
 	first := startAdjudication(t, dir, docket)
@@ -125,6 +129,8 @@ func TestAdjudicationResolvesOneDisagreementAndResumes(t *testing.T) {
 }
 
 func TestAdjudicationUndoReopensTheDecision(t *testing.T) {
+	t.Parallel()
+
 	r := startAdjudication(t, t.TempDir(), pairsDocket(t))
 
 	r.tm.Type("d")
@@ -136,6 +142,8 @@ func TestAdjudicationUndoReopensTheDecision(t *testing.T) {
 }
 
 func TestAdjudicationOfChecklistShowsAnswersPerAnnotator(t *testing.T) {
+	t.Parallel()
+
 	tk, err := task.NewTask(task.Spec{
 		Name:   "criteria",
 		Fields: []task.Field{{Name: "sentence", Title: "Guideline sentence"}},

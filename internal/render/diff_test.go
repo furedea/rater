@@ -9,6 +9,8 @@ import (
 )
 
 func TestParseDiff(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name string
 		text string
@@ -52,6 +54,8 @@ func TestParseDiff(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			lines := render.ParseDiff(tt.text)
 			kinds := make([]render.LineKind, 0, len(lines))
 			for _, l := range lines {
@@ -63,6 +67,8 @@ func TestParseDiff(t *testing.T) {
 }
 
 func TestHunksNavigation(t *testing.T) {
+	t.Parallel()
+
 	hunks := render.NewHunks([]int{3, 10, 25})
 	tests := []struct {
 		name     string
@@ -80,6 +86,8 @@ func TestHunksNavigation(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			next, ok := hunks.Next(tt.offset)
 			assert.Equal(t, tt.nextOK, ok)
 			assert.Equal(t, tt.wantNext, next)
@@ -91,6 +99,8 @@ func TestHunksNavigation(t *testing.T) {
 }
 
 func TestHunksEmpty(t *testing.T) {
+	t.Parallel()
+
 	var hunks render.Hunks
 
 	_, ok := hunks.Next(0)

@@ -13,6 +13,8 @@ import (
 )
 
 func TestAdjudicationLogKeepsDecisionsApartFromAnnotations(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	carol := mustAnnotator(t, "carol")
 	l, prior, err := store.OpenAdjudicationLog(dir, carol)
@@ -31,6 +33,8 @@ func TestAdjudicationLogKeepsDecisionsApartFromAnnotations(t *testing.T) {
 }
 
 func TestAdjudicationLogResumesPriorDecisions(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	carol := mustAnnotator(t, "carol")
 	first, _, err := store.OpenAdjudicationLog(dir, carol)
@@ -50,6 +54,8 @@ func TestAdjudicationLogResumesPriorDecisions(t *testing.T) {
 }
 
 func TestAdjudicationLogIsExclusivePerAdjudicator(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	carol := mustAnnotator(t, "carol")
 	first, _, err := store.OpenAdjudicationLog(dir, carol)
@@ -65,6 +71,8 @@ func TestAdjudicationLogIsExclusivePerAdjudicator(t *testing.T) {
 }
 
 func TestAdjudicationLogRefusesASecondAdjudicatorBeforeWriting(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	carol, _, err := store.OpenAdjudicationLog(dir, mustAnnotator(t, "carol"))
 	require.NoError(t, err)
@@ -79,6 +87,8 @@ func TestAdjudicationLogRefusesASecondAdjudicatorBeforeWriting(t *testing.T) {
 }
 
 func TestAdjudicationLogLetsTheSameAdjudicatorResume(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	carol := mustAnnotator(t, "carol")
 	first, _, err := store.OpenAdjudicationLog(dir, carol)
@@ -94,6 +104,8 @@ func TestAdjudicationLogLetsTheSameAdjudicatorResume(t *testing.T) {
 }
 
 func TestAdjudicationLogStartsTheFirstAdjudicator(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name  string
 		setup func(t *testing.T, dir string)
@@ -109,6 +121,8 @@ func TestAdjudicationLogStartsTheFirstAdjudicator(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			dir := t.TempDir()
 			tt.setup(t, dir)
 

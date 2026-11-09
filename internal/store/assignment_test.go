@@ -30,6 +30,8 @@ func assignedIDs(t *testing.T, plan task.Assignment, name string) []string {
 }
 
 func TestLoadAssignmentWithoutAFileShowsEveryoneEverything(t *testing.T) {
+	t.Parallel()
+
 	dir := writeTaskDir(t, fourItems)
 	ws, err := store.LoadWorkspace(dir)
 	require.NoError(t, err)
@@ -41,6 +43,8 @@ func TestLoadAssignmentWithoutAFileShowsEveryoneEverything(t *testing.T) {
 }
 
 func TestLoadAssignmentReadsSplitAndExplicitLists(t *testing.T) {
+	t.Parallel()
+
 	dir := writeTaskDir(t, fourItems)
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "assignment.yaml"), []byte(`split:
   annotators: [alice, bob]
@@ -60,6 +64,8 @@ items:
 }
 
 func TestLoadAssignmentRejectsInvalidFiles(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		yaml    string
@@ -71,6 +77,8 @@ func TestLoadAssignmentRejectsInvalidFiles(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			dir := writeTaskDir(t, fourItems)
 			require.NoError(t, os.WriteFile(filepath.Join(dir, "assignment.yaml"), []byte(tt.yaml), 0o600))
 			ws, err := store.LoadWorkspace(dir)

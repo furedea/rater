@@ -31,6 +31,8 @@ func openLog(t *testing.T, dir string) (*Log, []task.Annotation) {
 }
 
 func TestLogAppendWritesFullStampedLines(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	l, prior := openLog(t, dir)
 	assert.Empty(t, prior)
@@ -47,6 +49,8 @@ func TestLogAppendWritesFullStampedLines(t *testing.T) {
 }
 
 func TestLogResumeReturnsPriorRecordsAndAppends(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	first, _ := openLog(t, dir)
 	require.NoError(t, first.Append(task.Annotation{ItemID: "1", Action: task.ActionLabel, Label: "same"}))
@@ -68,6 +72,8 @@ func TestLogResumeReturnsPriorRecordsAndAppends(t *testing.T) {
 }
 
 func TestLogResumeThroughSessionHonoursUndo(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	first, _ := openLog(t, dir)
 	for _, a := range []task.Annotation{
@@ -87,6 +93,8 @@ func TestLogResumeThroughSessionHonoursUndo(t *testing.T) {
 }
 
 func TestLogWritesAnswerRecordsWithTheirCriterion(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	l, _ := openLog(t, dir)
 	l.now = func() time.Time { return time.Date(2026, 11, 2, 3, 4, 5, 0, time.UTC) }
@@ -108,6 +116,8 @@ const m1Log = `{"item":"1","annotator":"alice","action":"label","label":"same","
 `
 
 func TestOpenLogReadsFirstReleaseLogs(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Dir(logPath(dir)), 0o750))
 	require.NoError(t, os.WriteFile(logPath(dir), []byte(m1Log), 0o600))
@@ -144,6 +154,8 @@ checklist:
 }
 
 func TestLogResumesChecklistAnswersThroughSession(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	first, _ := openLog(t, dir)
 	s, err := task.NewSession(checklistWorkspace(t), nil, first)
@@ -166,6 +178,8 @@ func TestLogResumesChecklistAnswersThroughSession(t *testing.T) {
 }
 
 func TestLogRecoversFromTornFinalLine(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	full := `{"item":"1","annotator":"alice","action":"hold","at":"2026-11-02T00:00:00Z"}` + "\n"
 	require.NoError(t, os.MkdirAll(filepath.Dir(logPath(dir)), 0o750))
@@ -184,6 +198,8 @@ func TestLogRecoversFromTornFinalLine(t *testing.T) {
 }
 
 func TestOpenLogRejectsCorruptCompleteLine(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		content string
@@ -193,6 +209,8 @@ func TestOpenLogRejectsCorruptCompleteLine(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			dir := t.TempDir()
 			require.NoError(t, os.MkdirAll(filepath.Dir(logPath(dir)), 0o750))
 			require.NoError(t, os.WriteFile(logPath(dir), []byte(tt.content), 0o600))
@@ -223,6 +241,8 @@ func (h *halfWriter) Write(p []byte) (int, error) {
 }
 
 func TestLogAppendRollsBackPartialWrite(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	l, _ := openLog(t, dir)
 	require.NoError(t, l.Append(task.Annotation{ItemID: "1", Action: task.ActionHold}))
@@ -245,6 +265,8 @@ type stuckTruncate struct{ halfWriter }
 func (s *stuckTruncate) Truncate(int64) error { return errors.New("input/output error") }
 
 func TestLogStopsAppendingWhenRollbackFails(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	l, _ := openLog(t, dir)
 	l.file = &stuckTruncate{halfWriter{logFile: l.file}}
@@ -259,6 +281,8 @@ func TestLogStopsAppendingWhenRollbackFails(t *testing.T) {
 }
 
 func TestOpenLogIsExclusive(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	first, _ := openLog(t, dir)
 
@@ -272,6 +296,8 @@ func TestOpenLogIsExclusive(t *testing.T) {
 }
 
 func TestOpenLogAllowsDifferentAnnotators(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	alice, _ := openLog(t, dir)
 

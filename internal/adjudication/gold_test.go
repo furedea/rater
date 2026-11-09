@@ -26,6 +26,8 @@ func goldByID(golds []adjudication.Gold) map[string]adjudication.Gold {
 }
 
 func TestGoldHoldsAgreedAndAdjudicatedItemsInItemOrder(t *testing.T) {
+	t.Parallel()
+
 	d := pairsDocket(t)
 	decisions := task.Replay(d.Scheme(), []task.Annotation{label("2", "distinct"), note("2", "renamed file")})
 
@@ -44,6 +46,8 @@ func TestGoldHoldsAgreedAndAdjudicatedItemsInItemOrder(t *testing.T) {
 }
 
 func TestGoldRecordsWhichAnnotationsWereCompared(t *testing.T) {
+	t.Parallel()
+
 	d := pairsDocket(t)
 	decisions := task.Replay(d.Scheme(), []task.Annotation{label("2", "distinct")})
 
@@ -58,6 +62,8 @@ func TestGoldRecordsWhichAnnotationsWereCompared(t *testing.T) {
 }
 
 func TestGoldLeavesOutUnresolvedItems(t *testing.T) {
+	t.Parallel()
+
 	d := pairsDocket(t)
 	decisions := task.Replay(d.Scheme(), []task.Annotation{hold("2"), label("5", "same"), undo("5")})
 
@@ -70,6 +76,8 @@ func TestGoldLeavesOutUnresolvedItems(t *testing.T) {
 }
 
 func TestGoldPrefersAgreementOverDecisionOnItemNoLongerDisputed(t *testing.T) {
+	t.Parallel()
+
 	d := pairsDocket(t)
 	decisions := task.Replay(d.Scheme(), []task.Annotation{label("1", "distinct")})
 
@@ -80,6 +88,8 @@ func TestGoldPrefersAgreementOverDecisionOnItemNoLongerDisputed(t *testing.T) {
 }
 
 func TestGoldOfChecklistCarriesAnswersAndDerivedVerdict(t *testing.T) {
+	t.Parallel()
+
 	ws := workspace(t, checklistSpec(), "1", "2")
 	alice := annotator(ws, "alice",
 		answer("1", "concrete", "yes"), answer("1", "scoped", "yes"),
@@ -100,6 +110,8 @@ func TestGoldOfChecklistCarriesAnswersAndDerivedVerdict(t *testing.T) {
 }
 
 func TestGoldOmitsIncompleteChecklistDecision(t *testing.T) {
+	t.Parallel()
+
 	ws := workspace(t, checklistSpec(), "1")
 	alice := annotator(ws, "alice", answer("1", "concrete", "yes"), answer("1", "scoped", "yes"))
 	bob := annotator(ws, "bob", answer("1", "concrete", "no"), answer("1", "scoped", "yes"))

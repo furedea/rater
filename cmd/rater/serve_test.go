@@ -12,6 +12,8 @@ import (
 )
 
 func TestParseServeArgs(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		args    []string
@@ -37,6 +39,8 @@ func TestParseServeArgs(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got, err := parseServeArgs(tt.args)
 			if tt.wantErr != "" {
 				assert.ErrorContains(t, err, tt.wantErr)
@@ -49,6 +53,8 @@ func TestParseServeArgs(t *testing.T) {
 }
 
 func TestServeHelpExplainsKeysAndAssignment(t *testing.T) {
+	t.Parallel()
+
 	var out bytes.Buffer
 
 	err := serve(context.Background(), []string{"--help"}, &out)
@@ -60,6 +66,8 @@ func TestServeHelpExplainsKeysAndAssignment(t *testing.T) {
 }
 
 func TestServeRefusesAnInvalidKeysFileBeforeListening(t *testing.T) {
+	t.Parallel()
+
 	dir := taskDir(t, pairsTask, nil)
 	keys := filepath.Join(t.TempDir(), "keys.txt")
 	require.NoError(t, os.WriteFile(keys, []byte("alice\n"), 0o600))

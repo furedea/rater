@@ -30,6 +30,8 @@ func play(r render.Reader, steps []step) render.Reader {
 }
 
 func TestReaderReachesEveryHunk(t *testing.T) {
+	t.Parallel()
+
 	// The viewport can scroll no further than line 25, so the last hunk's
 	// start (40) is never a viewport offset.
 	hunks := render.NewHunks([]int{2, 20, 40})
@@ -50,6 +52,8 @@ func TestReaderReachesEveryHunk(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			r := play(render.NewReader(hunks), tt.steps)
 
 			assert.Equal(t, tt.wantLine, r.Line())
@@ -60,6 +64,8 @@ func TestReaderReachesEveryHunk(t *testing.T) {
 }
 
 func TestReaderWithoutHunks(t *testing.T) {
+	t.Parallel()
+
 	r := render.NewReader(render.Hunks{})
 
 	_, moved := r.NextHunk()

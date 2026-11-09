@@ -34,6 +34,8 @@ func startChecklist(t *testing.T) *harness {
 }
 
 func TestChecklistShowsCriteriaAnswersAndVerdict(t *testing.T) {
+	t.Parallel()
+
 	h := startChecklist(t)
 
 	h.tm.Type("y")
@@ -52,6 +54,8 @@ func TestChecklistShowsCriteriaAnswersAndVerdict(t *testing.T) {
 }
 
 func TestChecklistCompletesAndAdvances(t *testing.T) {
+	t.Parallel()
+
 	h := startChecklist(t)
 
 	h.tm.Type("yyy")
@@ -64,6 +68,8 @@ func TestChecklistCompletesAndAdvances(t *testing.T) {
 }
 
 func TestChecklistFocusKeyChoosesTheCriterion(t *testing.T) {
+	t.Parallel()
+
 	h := startChecklist(t)
 
 	h.tm.Send(keyShiftDown)

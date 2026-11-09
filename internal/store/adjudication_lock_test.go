@@ -19,6 +19,8 @@ import (
 // holding an exclusive lock on adjudications/, so two adjudicators starting
 // on an empty task at once cannot both pass the check.
 func TestAdjudicationLogChecksOtherAdjudicatorsUnderTheDirectoryLock(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	adjudications := filepath.Join(dir, "adjudications")
 	require.NoError(t, os.Mkdir(adjudications, 0o750))

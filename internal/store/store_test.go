@@ -25,6 +25,8 @@ labels:
 `
 
 func TestParseTask(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		yaml    string
@@ -49,6 +51,8 @@ func TestParseTask(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			_, err := store.ParseTask([]byte(tt.yaml))
 			if tt.wantErr == "" {
 				require.NoError(t, err)
@@ -60,6 +64,8 @@ func TestParseTask(t *testing.T) {
 }
 
 func TestParseTaskDefaults(t *testing.T) {
+	t.Parallel()
+
 	tk, err := store.ParseTask([]byte(validTaskYAML))
 	require.NoError(t, err)
 
@@ -69,6 +75,8 @@ func TestParseTaskDefaults(t *testing.T) {
 }
 
 func TestParseTaskRenders(t *testing.T) {
+	t.Parallel()
+
 	const doc = `name: x
 fields:
   - {name: d, render: diff}
@@ -104,6 +112,8 @@ checklist:
 `
 
 func TestParseTaskChecklist(t *testing.T) {
+	t.Parallel()
+
 	tk, err := store.ParseTask([]byte(checklistTaskYAML))
 	require.NoError(t, err)
 
@@ -119,6 +129,8 @@ func TestParseTaskChecklist(t *testing.T) {
 }
 
 func TestParseTaskChecklistErrors(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		yaml    string
@@ -132,6 +144,8 @@ func TestParseTaskChecklistErrors(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			_, err := store.ParseTask([]byte(tt.yaml))
 
 			assert.ErrorContains(t, err, tt.wantErr)
@@ -140,6 +154,8 @@ func TestParseTaskChecklistErrors(t *testing.T) {
 }
 
 func TestParseTaskNormalizesLabelKeys(t *testing.T) {
+	t.Parallel()
+
 	tk, err := store.ParseTask([]byte("name: x\nfields: [{name: a}]\nlabels: [{key: shift+s, name: same}]\n"))
 	require.NoError(t, err)
 
@@ -152,6 +168,8 @@ func TestParseTaskNormalizesLabelKeys(t *testing.T) {
 }
 
 func TestParseItems(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		input   string
@@ -167,6 +185,8 @@ func TestParseItems(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			items, err := store.ParseItems([]byte(tt.input))
 			if tt.wantErr != "" {
 				assert.ErrorContains(t, err, tt.wantErr)
@@ -183,6 +203,8 @@ func TestParseItems(t *testing.T) {
 }
 
 func TestParseItemsDisplaysNonStringValues(t *testing.T) {
+	t.Parallel()
+
 	items, err := store.ParseItems([]byte(`{"id":"1","pr":42,"tags":["a","b"],"text":"hi"}` + "\n"))
 	require.NoError(t, err)
 
@@ -198,8 +220,12 @@ func writeTaskDir(t *testing.T, items string) string {
 }
 
 func TestShippedExamplesLoad(t *testing.T) {
+	t.Parallel()
+
 	for _, name := range []string{"review-comment-pairs", "guideline-criteria", "diff-relevance"} {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			ws, err := store.LoadWorkspace(filepath.Join("..", "..", "examples", name))
 
 			require.NoError(t, err)
@@ -210,6 +236,8 @@ func TestShippedExamplesLoad(t *testing.T) {
 }
 
 func TestShippedExamplesUseTheirLayoutAndScheme(t *testing.T) {
+	t.Parallel()
+
 	pairs, err := store.LoadTask(filepath.Join("..", "..", "examples", "review-comment-pairs"))
 	require.NoError(t, err)
 	criteria, err := store.LoadTask(filepath.Join("..", "..", "examples", "guideline-criteria"))
@@ -222,7 +250,11 @@ func TestShippedExamplesUseTheirLayoutAndScheme(t *testing.T) {
 }
 
 func TestLoadWorkspace(t *testing.T) {
+	t.Parallel()
+
 	t.Run("valid", func(t *testing.T) {
+		t.Parallel()
+
 		dir := writeTaskDir(t, `{"id":"1","a":"x","b":"y"}`+"\n")
 
 		ws, err := store.LoadWorkspace(dir)
@@ -231,6 +263,8 @@ func TestLoadWorkspace(t *testing.T) {
 		assert.Len(t, ws.Items, 1)
 	})
 	t.Run("item lacks configured field", func(t *testing.T) {
+		t.Parallel()
+
 		dir := writeTaskDir(t, `{"id":"1","a":"x"}`+"\n")
 
 		_, err := store.LoadWorkspace(dir)
@@ -238,6 +272,8 @@ func TestLoadWorkspace(t *testing.T) {
 		assert.ErrorIs(t, err, task.ErrInvalidItems)
 	})
 	t.Run("missing task file", func(t *testing.T) {
+		t.Parallel()
+
 		_, err := store.LoadWorkspace(t.TempDir())
 
 		assert.ErrorIs(t, err, os.ErrNotExist)

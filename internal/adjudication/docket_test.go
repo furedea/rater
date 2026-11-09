@@ -106,12 +106,16 @@ func pairsDocketWith(t *testing.T, bobExtra ...task.Annotation) adjudication.Doc
 }
 
 func TestDocketListsOnlyDisagreementsInItemOrder(t *testing.T) {
+	t.Parallel()
+
 	d := pairsDocket(t)
 
 	assert.Equal(t, []string{"2", "5"}, ids(d.Disputed()))
 }
 
 func TestDocketComparesChecklistsPerCriterion(t *testing.T) {
+	t.Parallel()
+
 	ws := workspace(t, checklistSpec(), "1", "2", "3")
 	alice := annotator(ws, "alice",
 		answer("1", "concrete", "yes"), answer("1", "scoped", "yes"),
@@ -129,6 +133,8 @@ func TestDocketComparesChecklistsPerCriterion(t *testing.T) {
 }
 
 func TestDocketNeedsTwoAnnotators(t *testing.T) {
+	t.Parallel()
+
 	ws := workspace(t, singleChoiceSpec(), "1")
 
 	_, err := adjudication.NewDocket(ws, []adjudication.Annotator{annotator(ws, "alice", label("1", "same"))})
@@ -137,6 +143,8 @@ func TestDocketNeedsTwoAnnotators(t *testing.T) {
 }
 
 func TestDocketShowsEachAnnotatorsStateOfAnItem(t *testing.T) {
+	t.Parallel()
+
 	d := pairsDocket(t)
 
 	got := d.Judgments("2")
@@ -150,6 +158,8 @@ func TestDocketShowsEachAnnotatorsStateOfAnItem(t *testing.T) {
 }
 
 func TestOpenWalksDisputedItemsOnly(t *testing.T) {
+	t.Parallel()
+
 	d := pairsDocket(t)
 	rec := &memoryRecorder{}
 
@@ -184,6 +194,8 @@ func decide(t *testing.T, d adjudication.Docket, keys ...rune) []task.Annotation
 }
 
 func TestOpenResumesAtFirstUndecidedDisagreementAndUndoes(t *testing.T) {
+	t.Parallel()
+
 	d := pairsDocket(t)
 	prior := decide(t, d, 's')
 
@@ -200,6 +212,8 @@ func TestOpenResumesAtFirstUndecidedDisagreementAndUndoes(t *testing.T) {
 }
 
 func TestOpenReopensDecisionWhenTheComparedAnnotationsChanged(t *testing.T) {
+	t.Parallel()
+
 	prior := decide(t, pairsDocket(t), 's', 'd')
 	changed := pairsDocketWith(t, label("2", "same"), label("2", "distinct"), note("2", "still distinct"))
 
@@ -213,6 +227,8 @@ func TestOpenReopensDecisionWhenTheComparedAnnotationsChanged(t *testing.T) {
 }
 
 func TestOpenReopensDecisionWhenAnAnnotatorJoins(t *testing.T) {
+	t.Parallel()
+
 	d := pairsDocket(t)
 	prior := decide(t, d, 's')
 	ws := workspace(t, singleChoiceSpec(), "1", "2", "3", "4", "5", "6")
@@ -226,6 +242,8 @@ func TestOpenReopensDecisionWhenAnAnnotatorJoins(t *testing.T) {
 }
 
 func TestOpenKeepsDecisionsOnItemsNoLongerDisputed(t *testing.T) {
+	t.Parallel()
+
 	d := pairsDocket(t)
 
 	s, err := d.Open([]task.Annotation{label("1", "distinct")}, &memoryRecorder{})
@@ -235,6 +253,8 @@ func TestOpenKeepsDecisionsOnItemsNoLongerDisputed(t *testing.T) {
 }
 
 func TestOpenRejectsDecisionOnUnknownItem(t *testing.T) {
+	t.Parallel()
+
 	d := pairsDocket(t)
 
 	_, err := d.Open([]task.Annotation{label("9", "same")}, &memoryRecorder{})
@@ -243,6 +263,8 @@ func TestOpenRejectsDecisionOnUnknownItem(t *testing.T) {
 }
 
 func TestOpenWithoutDisagreements(t *testing.T) {
+	t.Parallel()
+
 	ws := workspace(t, singleChoiceSpec(), "1")
 	d, err := adjudication.NewDocket(ws, []adjudication.Annotator{
 		annotator(ws, "alice", label("1", "same")), annotator(ws, "bob", label("1", "same")),

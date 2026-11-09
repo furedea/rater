@@ -33,6 +33,8 @@ func checklistOf(t *testing.T, tk task.Task) task.Checklist {
 }
 
 func TestNewTaskChecklist(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		mutate  func(*task.Spec)
@@ -52,6 +54,8 @@ func TestNewTaskChecklist(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			spec := checklistSpec()
 			cl := *spec.Checklist
 			cl.Criteria = append([]task.Criterion(nil), cl.Criteria...)
@@ -73,6 +77,8 @@ func TestNewTaskChecklist(t *testing.T) {
 }
 
 func TestNewTaskWithLabelsIsSingleChoice(t *testing.T) {
+	t.Parallel()
+
 	tk, err := task.NewTask(validSpec())
 	require.NoError(t, err)
 
@@ -83,6 +89,8 @@ func TestNewTaskWithLabelsIsSingleChoice(t *testing.T) {
 }
 
 func TestAllPassVerdict(t *testing.T) {
+	t.Parallel()
+
 	tk, err := task.NewTask(checklistSpec())
 	require.NoError(t, err)
 	cl := checklistOf(t, tk)
@@ -101,12 +109,16 @@ func TestAllPassVerdict(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			assert.Equal(t, tt.want, cl.Verdict(tt.answers))
 		})
 	}
 }
 
 func TestParseVerdictRule(t *testing.T) {
+	t.Parallel()
+
 	got, err := task.ParseVerdictRule("all_pass")
 	require.NoError(t, err)
 	assert.Equal(t, "all_pass", got.String())

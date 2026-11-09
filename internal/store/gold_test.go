@@ -46,6 +46,8 @@ func readGold(t *testing.T, dir string) string {
 }
 
 func TestWriteGoldWritesOneLinePerItem(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 
 	require.NoError(t, store.WriteGold(dir, pairsGold()))
@@ -61,6 +63,8 @@ func TestWriteGoldWritesOneLinePerItem(t *testing.T) {
 }
 
 func TestWriteGoldOfChecklistHasSortedAnswersAndVerdict(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	answers := map[string]string{"scoped": "no", "concrete": "yes", "actionable": "yes"}
 	golds := []adjudication.Gold{{
@@ -81,6 +85,8 @@ func TestWriteGoldOfChecklistHasSortedAnswersAndVerdict(t *testing.T) {
 }
 
 func TestWriteGoldReplacesTheWholeFileAndLeavesNoTemporaryFile(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	require.NoError(t, store.WriteGold(dir, pairsGold()))
 
@@ -94,6 +100,8 @@ func TestWriteGoldReplacesTheWholeFileAndLeavesNoTemporaryFile(t *testing.T) {
 }
 
 func TestWriteGoldWithNothingResolvedIsEmpty(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 
 	require.NoError(t, store.WriteGold(dir, nil))
