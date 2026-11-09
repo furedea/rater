@@ -9,6 +9,8 @@ linters:
     - gocognit
     - gocyclo
     - gosec
+    - nolintlint
+    - paralleltest
     - revive
   settings:
     gocognit:
@@ -17,6 +19,8 @@ linters:
       min-complexity: 10
     revive:
       rules:
+        - name: package-comments
+        - name: exported
         - name: argument-limit
           arguments: [3]
         - name: max-control-nesting
