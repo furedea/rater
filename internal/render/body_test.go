@@ -22,6 +22,8 @@ func newBody(t *testing.T, fields []task.Field, values map[string]string) (rende
 }
 
 func TestBodyHunkOffsetsPointAtHunkHeaders(t *testing.T) {
+	t.Parallel()
+
 	fields := []task.Field{
 		{Name: "g", Title: "Guideline"},
 		{Name: "d", Title: "Diff", Render: task.RenderDiff},
@@ -41,6 +43,8 @@ func TestBodyHunkOffsetsPointAtHunkHeaders(t *testing.T) {
 }
 
 func TestBodyColoursDiffLinesByKind(t *testing.T) {
+	t.Parallel()
+
 	fields := []task.Field{{Name: "d", Title: "Diff", Render: task.RenderDiff}}
 
 	body, _ := newBody(t, fields, map[string]string{"d": "@@ -1,2 +1,2 @@\n-old\n+new\n same"})
@@ -54,6 +58,8 @@ func TestBodyColoursDiffLinesByKind(t *testing.T) {
 }
 
 func TestBodyWrapsLongDiffLinesAndKeepsOffsets(t *testing.T) {
+	t.Parallel()
+
 	fields := []task.Field{{Name: "d", Title: "Diff", Render: task.RenderDiff}}
 	long := "+" + strings.Repeat("x", width*2)
 
@@ -71,6 +77,8 @@ func TestBodyWrapsLongDiffLinesAndKeepsOffsets(t *testing.T) {
 }
 
 func TestBodyHighlightsCode(t *testing.T) {
+	t.Parallel()
+
 	src := "package main\n\nfunc main() {}"
 	tests := []struct {
 		name   string
@@ -82,6 +90,8 @@ func TestBodyHighlightsCode(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			body, lines := newBody(t, []task.Field{tt.field}, tt.values)
 
 			assert.Equal(t, append([]string{"Code"}, strings.Split(src, "\n")...), lines)
@@ -105,6 +115,8 @@ func keywordColour(t *testing.T, body render.Body) string {
 }
 
 func TestBodyCodeLanguagePrecedence(t *testing.T) {
+	t.Parallel()
+
 	src := "package main"
 	field := task.Field{Name: "c", Title: "Code", Render: task.RenderCode, Language: "go", LanguageField: "lang"}
 	tests := []struct {
@@ -117,6 +129,8 @@ func TestBodyCodeLanguagePrecedence(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			body, lines := newBody(t, []task.Field{field}, map[string]string{"c": src, "lang": tt.itemLang})
 
 			assert.Equal(t, []string{"Code", src}, lines)
@@ -126,6 +140,8 @@ func TestBodyCodeLanguagePrecedence(t *testing.T) {
 }
 
 func TestBodyRendersMarkdown(t *testing.T) {
+	t.Parallel()
+
 	field := task.Field{Name: "m", Title: "Notes", Render: task.RenderMarkdown}
 
 	_, lines := newBody(t, []task.Field{field}, map[string]string{"m": "# Heading\n\nSome **bold** text."})
@@ -137,6 +153,8 @@ func TestBodyRendersMarkdown(t *testing.T) {
 }
 
 func TestBodyWrapsPlainText(t *testing.T) {
+	t.Parallel()
+
 	field := task.Field{Name: "a", Title: "A"}
 	words := strings.Repeat("word ", 30)
 

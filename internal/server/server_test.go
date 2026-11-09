@@ -42,6 +42,8 @@ labels:
 )
 
 func TestServeRejectsAnUnregisteredKey(t *testing.T) {
+	t.Parallel()
+
 	h := startServer(t, map[string]gossh.Signer{"alice": newSigner(t)})
 
 	_, err := h.dial("alice", newSigner(t))
@@ -51,6 +53,8 @@ func TestServeRejectsAnUnregisteredKey(t *testing.T) {
 }
 
 func TestServeRejectsPasswordLogins(t *testing.T) {
+	t.Parallel()
+
 	h := startServer(t, map[string]gossh.Signer{"alice": newSigner(t)})
 
 	_, err := gossh.Dial("tcp", h.addr, &gossh.ClientConfig{
@@ -64,6 +68,8 @@ func TestServeRejectsPasswordLogins(t *testing.T) {
 }
 
 func TestServeRecordsUnderTheAnnotatorOfTheKeyNotTheLoginName(t *testing.T) {
+	t.Parallel()
+
 	alice := newSigner(t)
 	h := startServer(t, map[string]gossh.Signer{"alice": alice, "bob": newSigner(t)})
 	term := openTerminal(t, h.mustDial(t, "bob", alice))
@@ -78,6 +84,8 @@ func TestServeRecordsUnderTheAnnotatorOfTheKeyNotTheLoginName(t *testing.T) {
 }
 
 func TestServeRunsDifferentAnnotatorsConcurrentlyAndBlind(t *testing.T) {
+	t.Parallel()
+
 	alice, bob := newSigner(t), newSigner(t)
 	h := startServer(t, map[string]gossh.Signer{"alice": alice, "bob": bob})
 	aliceTerm := openTerminal(t, h.mustDial(t, "alice", alice))
@@ -105,6 +113,8 @@ func TestServeRunsDifferentAnnotatorsConcurrentlyAndBlind(t *testing.T) {
 }
 
 func TestServeStartsEachAnnotatorWithOnlyTheirOwnProgress(t *testing.T) {
+	t.Parallel()
+
 	alice, bob := newSigner(t), newSigner(t)
 	h := startServer(t, map[string]gossh.Signer{"alice": alice, "bob": bob})
 	aliceTerm := openTerminal(t, h.mustDial(t, "alice", alice))
@@ -121,6 +131,8 @@ func TestServeStartsEachAnnotatorWithOnlyTheirOwnProgress(t *testing.T) {
 }
 
 func TestServeRefusesASecondSessionOfTheSameAnnotator(t *testing.T) {
+	t.Parallel()
+
 	alice := newSigner(t)
 	h := startServer(t, map[string]gossh.Signer{"alice": alice})
 	first := openTerminal(t, h.mustDial(t, "alice", alice))
@@ -139,6 +151,8 @@ func TestServeRefusesASecondSessionOfTheSameAnnotator(t *testing.T) {
 }
 
 func TestServeLetsAnAnnotatorReconnectAfterADroppedConnection(t *testing.T) {
+	t.Parallel()
+
 	alice := newSigner(t)
 	h := startServer(t, map[string]gossh.Signer{"alice": alice})
 	client := h.mustDial(t, "alice", alice)
@@ -163,6 +177,8 @@ func TestServeLetsAnAnnotatorReconnectAfterADroppedConnection(t *testing.T) {
 }
 
 func TestServeReleasesTheLogWhenTheClientClosesOnlyTheSession(t *testing.T) {
+	t.Parallel()
+
 	alice := newSigner(t)
 	h := startServer(t, map[string]gossh.Signer{"alice": alice})
 	term := openTerminal(t, h.mustDial(t, "alice", alice))
@@ -180,6 +196,8 @@ func TestServeReleasesTheLogWhenTheClientClosesOnlyTheSession(t *testing.T) {
 }
 
 func TestServeReturnsWhenCancelledBeforeItStarts(t *testing.T) {
+	t.Parallel()
+
 	srv, err := server.New(server.Config{
 		TaskDir: t.TempDir(), Keys: keyring(t, map[string]gossh.Signer{"alice": newSigner(t)}), HostKey: newSigner(t),
 	})
@@ -203,6 +221,8 @@ func TestServeReturnsWhenCancelledBeforeItStarts(t *testing.T) {
 }
 
 func TestServeGivesNoCommandSubsystemOrForwarding(t *testing.T) {
+	t.Parallel()
+
 	alice := newSigner(t)
 	h := startServer(t, map[string]gossh.Signer{"alice": alice})
 	client := h.mustDial(t, "alice", alice)
@@ -223,6 +243,8 @@ func TestServeGivesNoCommandSubsystemOrForwarding(t *testing.T) {
 }
 
 func TestServeRequiresATerminal(t *testing.T) {
+	t.Parallel()
+
 	alice := newSigner(t)
 	h := startServer(t, map[string]gossh.Signer{"alice": alice})
 	sess, err := h.mustDial(t, "alice", alice).NewSession()
@@ -238,6 +260,8 @@ func TestServeRequiresATerminal(t *testing.T) {
 }
 
 func TestServeShowsOnlyAssignedItems(t *testing.T) {
+	t.Parallel()
+
 	alice := newSigner(t)
 	h := startServerWith(t, map[string]gossh.Signer{"alice": alice}, "items:\n  alice: [\"2\"]\n")
 	term := openTerminal(t, h.mustDial(t, "alice", alice))
@@ -251,6 +275,8 @@ func TestServeShowsOnlyAssignedItems(t *testing.T) {
 }
 
 func TestServeShutsDownGracefullyWhenTheContextEnds(t *testing.T) {
+	t.Parallel()
+
 	alice := newSigner(t)
 	h := startServer(t, map[string]gossh.Signer{"alice": alice})
 	client := h.mustDial(t, "alice", alice)

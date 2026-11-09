@@ -12,6 +12,8 @@ import (
 )
 
 func TestLoadHostKeyCreatesAnOwnerOnlyKeyOnFirstStart(t *testing.T) {
+	t.Parallel()
+
 	path := filepath.Join(t.TempDir(), "host_ed25519")
 
 	_, err := server.LoadHostKey(path)
@@ -23,6 +25,8 @@ func TestLoadHostKeyCreatesAnOwnerOnlyKeyOnFirstStart(t *testing.T) {
 }
 
 func TestLoadHostKeyReusesThePersistedKey(t *testing.T) {
+	t.Parallel()
+
 	path := filepath.Join(t.TempDir(), "host_ed25519")
 	first, err := server.LoadHostKey(path)
 	require.NoError(t, err)
@@ -34,6 +38,8 @@ func TestLoadHostKeyReusesThePersistedKey(t *testing.T) {
 }
 
 func TestLoadHostKeyRefusesAKeyOthersCanRead(t *testing.T) {
+	t.Parallel()
+
 	path := filepath.Join(t.TempDir(), "host_ed25519")
 	_, err := server.LoadHostKey(path)
 	require.NoError(t, err)

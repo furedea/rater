@@ -10,6 +10,8 @@ import (
 )
 
 func TestParseKeyNormalizesSynonyms(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name string
 		in   string
@@ -38,6 +40,8 @@ func TestParseKeyNormalizesSynonyms(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got, err := task.ParseKey(tt.in)
 
 			require.NoError(t, err)
@@ -47,8 +51,12 @@ func TestParseKeyNormalizesSynonyms(t *testing.T) {
 }
 
 func TestParseKeyRejectsUnusableNotation(t *testing.T) {
+	t.Parallel()
+
 	for _, in := range []string{"", "  ", " down", "ctrl+", "hyperdrive+a", "ctrl+ctrl+a"} {
 		t.Run(in, func(t *testing.T) {
+			t.Parallel()
+
 			_, err := task.ParseKey(in)
 
 			assert.Error(t, err)
@@ -57,6 +65,8 @@ func TestParseKeyRejectsUnusableNotation(t *testing.T) {
 }
 
 func TestTaskMatchesKeySynonyms(t *testing.T) {
+	t.Parallel()
+
 	spec := validSpec()
 	spec.Keys = map[task.Binding]string{task.BindingScrollDown: "shift+j"}
 	tk, err := task.NewTask(spec)
@@ -70,6 +80,8 @@ func TestTaskMatchesKeySynonyms(t *testing.T) {
 }
 
 func TestNewTaskDetectsCollisionsBetweenSynonyms(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		keys    map[task.Binding]string
@@ -82,6 +94,8 @@ func TestNewTaskDetectsCollisionsBetweenSynonyms(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			spec := validSpec()
 			spec.Keys = tt.keys
 			if tt.labels != nil {

@@ -70,6 +70,8 @@ func requireValue(t *testing.T, c agreement.Coefficient) float64 {
 // read by A and B; Yes/Yes 20, Yes/No 5, No/Yes 10, No/No 15 gives
 // p_o = 0.70, p_e = 0.50 and kappa = 0.40.
 func TestKappaMatchesWikipediaGrantProposalExample(t *testing.T) {
+	t.Parallel()
+
 	d := pairFromCounts(t, []string{"yes", "no"}, [][]int{{20, 5}, {10, 15}})
 
 	c, err := agreement.NewConfusion(d)
@@ -87,6 +89,8 @@ func TestKappaMatchesWikipediaGrantProposalExample(t *testing.T) {
 // are rater2 and rater3 decoded from irr's data/diagnoses.rda, with categories
 // 1 Depression, 2 Personality Disorder, 3 Schizophrenia, 4 Neurosis, 5 Other.
 func TestKappaMatchesIrrKappa2DiagnosesExample(t *testing.T) {
+	t.Parallel()
+
 	d := unitsFrom(t,
 		"4 2 3 5 2 1 3 1 1 5 4 2 2 4 2 3 1 1 2 3 5 4 2 1 4 2 1 2 3 5",
 		"4 2 3 5 2 3 3 3 4 5 4 4 2 4 4 3 1 1 4 3 5 4 4 4 4 2 1 4 3 5",
@@ -105,6 +109,8 @@ func TestKappaMatchesIrrKappa2DiagnosesExample(t *testing.T) {
 // (Krippendorff's own example with missing values) has nominal alpha 0.743.
 // Rows below are the raters; "." is NA.
 func TestAlphaMatchesIrrKrippAlphaExample(t *testing.T) {
+	t.Parallel()
+
 	d := unitsFrom(t,
 		"1 2 3 3 2 1 4 1 2 . . .",
 		"1 2 3 3 2 2 4 1 2 5 . 3",
@@ -120,6 +126,8 @@ func TestAlphaMatchesIrrKrippAlphaExample(t *testing.T) {
 }
 
 func TestConfusionCountsUnitsRatedByBoth(t *testing.T) {
+	t.Parallel()
+
 	d := unitsFrom(t,
 		"a a b b . c",
 		"a b b b c .",
@@ -138,12 +146,16 @@ func TestConfusionCountsUnitsRatedByBoth(t *testing.T) {
 }
 
 func TestNewConfusionNeedsExactlyTwoRaters(t *testing.T) {
+	t.Parallel()
+
 	_, err := agreement.NewConfusion(unitsFrom(t, "a", "a", "a"))
 
 	assert.ErrorIs(t, err, agreement.ErrNotPair)
 }
 
 func TestNewDataRejectsRaggedUnits(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name   string
 		raters int
@@ -155,6 +167,8 @@ func TestNewDataRejectsRaggedUnits(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			_, err := agreement.NewData(tt.raters, tt.units)
 			assert.ErrorIs(t, err, agreement.ErrShape)
 		})
@@ -162,6 +176,8 @@ func TestNewDataRejectsRaggedUnits(t *testing.T) {
 }
 
 func TestKappaDegenerateInputs(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name       string
 		a, b       string
@@ -174,6 +190,8 @@ func TestKappaDegenerateInputs(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			c, err := agreement.NewConfusion(unitsFrom(t, tt.a, tt.b))
 			require.NoError(t, err)
 			k := c.Kappa()
@@ -187,6 +205,8 @@ func TestKappaDegenerateInputs(t *testing.T) {
 }
 
 func TestKappaOfOppositeRatersIsNegative(t *testing.T) {
+	t.Parallel()
+
 	c, err := agreement.NewConfusion(unitsFrom(t, "a b a b", "b a b a"))
 	require.NoError(t, err)
 
@@ -194,6 +214,8 @@ func TestKappaOfOppositeRatersIsNegative(t *testing.T) {
 }
 
 func TestAlphaDegenerateInputs(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name       string
 		raters     []string
@@ -206,6 +228,8 @@ func TestAlphaDegenerateInputs(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			a := agreement.Alpha(unitsFrom(t, tt.raters...))
 
 			_, ok := a.Alpha.Value()
@@ -219,6 +243,8 @@ func TestAlphaDegenerateInputs(t *testing.T) {
 // Missing values only remove a rater from a unit: the same pairable values
 // give the same alpha whatever else is missing around them.
 func TestAlphaIgnoresUnpairableValues(t *testing.T) {
+	t.Parallel()
+
 	full := agreement.Alpha(unitsFrom(t, "a b a b", "a b b b"))
 	padded := agreement.Alpha(unitsFrom(t, "a b a b c .", "a b b b . d", ". . . . . ."))
 
@@ -227,6 +253,8 @@ func TestAlphaIgnoresUnpairableValues(t *testing.T) {
 }
 
 func TestPerfectAgreementIsOne(t *testing.T) {
+	t.Parallel()
+
 	d := unitsFrom(t, "a b c a", "a b c a")
 	c, err := agreement.NewConfusion(d)
 	require.NoError(t, err)

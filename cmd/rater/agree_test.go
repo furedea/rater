@@ -13,6 +13,8 @@ import (
 )
 
 func TestParseAgreeArgs(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name           string
 		args           []string
@@ -32,6 +34,8 @@ func TestParseAgreeArgs(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			opts, err := parseAgreeArgs(tt.args)
 			if tt.wantErr != "" {
 				assert.ErrorContains(t, err, tt.wantErr)
@@ -130,6 +134,8 @@ func agreeJSON(t *testing.T, args ...string) map[string]any {
 }
 
 func TestAgreeReportsAPairWithKappaAndConfusion(t *testing.T) {
+	t.Parallel()
+
 	dir := taskDir(t, pairsTask, pairsLogs())
 
 	doc := agreeJSON(t, "--task", dir, "--annotators", "alice,bob")
@@ -155,6 +161,8 @@ func TestAgreeReportsAPairWithKappaAndConfusion(t *testing.T) {
 }
 
 func TestAgreeReadsOnlyTheSelectedLogs(t *testing.T) {
+	t.Parallel()
+
 	logs := pairsLogs()
 	logs["carol"] = "{corrupt}\n"
 	dir := taskDir(t, pairsTask, logs)
@@ -165,6 +173,8 @@ func TestAgreeReadsOnlyTheSelectedLogs(t *testing.T) {
 }
 
 func TestAgreeAcrossAllAnnotatorsReportsAlphaOnly(t *testing.T) {
+	t.Parallel()
+
 	dir := taskDir(t, pairsTask, pairsLogs())
 
 	doc := agreeJSON(t, "--task", dir)
@@ -179,6 +189,8 @@ func TestAgreeAcrossAllAnnotatorsReportsAlphaOnly(t *testing.T) {
 }
 
 func TestAgreeReportsEachCriterionAndTheVerdict(t *testing.T) {
+	t.Parallel()
+
 	dir := taskDir(t, criteriaTask, map[string]string{
 		"alice": logOf("answer 1 yes concrete", "answer 1 yes scoped", "answer 2 yes concrete", "answer 2 yes scoped"),
 		"bob": logOf("answer 1 yes concrete", "answer 1 no scoped",
@@ -198,6 +210,8 @@ func TestAgreeReportsEachCriterionAndTheVerdict(t *testing.T) {
 }
 
 func TestAgreeTextReport(t *testing.T) {
+	t.Parallel()
+
 	dir := taskDir(t, pairsTask, pairsLogs())
 	var out bytes.Buffer
 
@@ -211,6 +225,8 @@ func TestAgreeTextReport(t *testing.T) {
 }
 
 func TestAgreeTextReportExplainsUndefinedValues(t *testing.T) {
+	t.Parallel()
+
 	dir := taskDir(t, pairsTask, map[string]string{
 		"alice": logOf("label 1 same"),
 		"bob":   logOf("label 2 same"),
@@ -223,6 +239,8 @@ func TestAgreeTextReportExplainsUndefinedValues(t *testing.T) {
 }
 
 func TestAgreeRejects(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		logs    map[string]string
@@ -235,6 +253,8 @@ func TestAgreeRejects(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			dir := taskDir(t, pairsTask, tt.logs)
 
 			err := runAgree(append([]string{"--task", dir}, tt.args...), &bytes.Buffer{})

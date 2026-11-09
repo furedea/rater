@@ -10,6 +10,8 @@ import (
 // A client chooses its terminal size, and the screen allocates a buffer of
 // that size, so the size is capped before it reaches the program.
 func TestScreenSizeCapsClientWindows(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name          string
 		window        ssh.Window

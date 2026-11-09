@@ -35,6 +35,8 @@ func answer(id, criterion, value string) task.Annotation {
 }
 
 func TestChecklistAnswerRecordsTheFocusedCriterion(t *testing.T) {
+	t.Parallel()
+
 	s, rec := newChecklistSession(t, nil, "1", "2")
 
 	require.NoError(t, s.Choose('n'))
@@ -47,6 +49,8 @@ func TestChecklistAnswerRecordsTheFocusedCriterion(t *testing.T) {
 }
 
 func TestChecklistCompletingAllCriteriaAdvances(t *testing.T) {
+	t.Parallel()
+
 	s, _ := newChecklistSession(t, nil, "1", "2")
 
 	for _, key := range "yyy" {
@@ -61,6 +65,8 @@ func TestChecklistCompletingAllCriteriaAdvances(t *testing.T) {
 }
 
 func TestChecklistUnsureAnswerCountsAsAnswered(t *testing.T) {
+	t.Parallel()
+
 	s, rec := newChecklistSession(t, nil, "1", "2")
 
 	for _, key := range "yy?" {
@@ -78,6 +84,8 @@ func TestChecklistUnsureAnswerCountsAsAnswered(t *testing.T) {
 }
 
 func TestChecklistFocusSkipsAnsweredCriteria(t *testing.T) {
+	t.Parallel()
+
 	s, _ := newChecklistSession(t, nil, "1")
 	s.FocusNext()
 	require.NoError(t, s.Choose('y'))
@@ -89,6 +97,8 @@ func TestChecklistFocusSkipsAnsweredCriteria(t *testing.T) {
 }
 
 func TestChecklistFocusStaysInRange(t *testing.T) {
+	t.Parallel()
+
 	s, _ := newChecklistSession(t, nil, "1")
 
 	s.FocusPrev()
@@ -100,6 +110,8 @@ func TestChecklistFocusStaysInRange(t *testing.T) {
 }
 
 func TestChecklistReanswerReplacesTheAnswer(t *testing.T) {
+	t.Parallel()
+
 	s, rec := newChecklistSession(t, nil, "1", "2")
 	for _, key := range "yyy" {
 		require.NoError(t, s.Choose(key))
@@ -115,6 +127,8 @@ func TestChecklistReanswerReplacesTheAnswer(t *testing.T) {
 }
 
 func TestChecklistUndoRevertsOneAnswer(t *testing.T) {
+	t.Parallel()
+
 	s, rec := newChecklistSession(t, nil, "1", "2")
 	for _, key := range "yyy" {
 		require.NoError(t, s.Choose(key))
@@ -130,6 +144,8 @@ func TestChecklistUndoRevertsOneAnswer(t *testing.T) {
 }
 
 func TestChecklistHoldKeepsAnswers(t *testing.T) {
+	t.Parallel()
+
 	s, _ := newChecklistSession(t, nil, "1", "2")
 	require.NoError(t, s.Choose('y'))
 
@@ -142,6 +158,8 @@ func TestChecklistHoldKeepsAnswers(t *testing.T) {
 }
 
 func TestChecklistResume(t *testing.T) {
+	t.Parallel()
+
 	complete := []task.Annotation{answer("1", "specific", "yes"), answer("1", "checkable", "no"), answer("1", "scoped", "yes")}
 	tests := []struct {
 		name        string
@@ -157,6 +175,8 @@ func TestChecklistResume(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			s, _ := newChecklistSession(t, tt.prior, "1", "2")
 
 			assert.Equal(t, tt.wantCurrent, s.Current().ID)
@@ -167,6 +187,8 @@ func TestChecklistResume(t *testing.T) {
 }
 
 func TestNewSessionRejectsRecordsThatDoNotFitTheScheme(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name  string
 		prior []task.Annotation
@@ -177,6 +199,8 @@ func TestNewSessionRejectsRecordsThatDoNotFitTheScheme(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			tk, err := task.NewTask(checklistSpec())
 			require.NoError(t, err)
 			ws, err := task.NewWorkspace(tk, []task.Item{{ID: "1", Values: map[string]string{"sentence": "s"}}})
@@ -190,6 +214,8 @@ func TestNewSessionRejectsRecordsThatDoNotFitTheScheme(t *testing.T) {
 }
 
 func TestNewSessionRejectsAnswersInASingleChoiceTask(t *testing.T) {
+	t.Parallel()
+
 	prior := []task.Annotation{answer("1", "specific", "yes")}
 
 	_, err := task.NewSession(newWorkspace(t, "1"), prior, &fakeRecorder{})
@@ -198,6 +224,8 @@ func TestNewSessionRejectsAnswersInASingleChoiceTask(t *testing.T) {
 }
 
 func TestNewSessionRejectsUnknownLabelInASingleChoiceTask(t *testing.T) {
+	t.Parallel()
+
 	prior := []task.Annotation{{ItemID: "1", Action: task.ActionLabel, Label: "other"}}
 
 	_, err := task.NewSession(newWorkspace(t, "1"), prior, &fakeRecorder{})

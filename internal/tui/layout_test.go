@@ -43,6 +43,8 @@ func lineWith(screen string, parts ...string) string {
 }
 
 func TestSideBySideShowsFieldsInColumns(t *testing.T) {
+	t.Parallel()
+
 	h := startSideBySide(t, "null check missing", "guard user before use")
 
 	screen := h.finish(t)
@@ -57,6 +59,8 @@ func TestSideBySideShowsFieldsInColumns(t *testing.T) {
 }
 
 func TestSideBySideFallsBackToStackedWhenNarrow(t *testing.T) {
+	t.Parallel()
+
 	h := startSideBySide(t, "null check missing", "guard user before use")
 
 	h.tm.Send(tea.WindowSizeMsg{Width: 50, Height: 40})
@@ -69,7 +73,11 @@ func TestSideBySideFallsBackToStackedWhenNarrow(t *testing.T) {
 }
 
 func TestSideBySideScrollsTheFocusedPane(t *testing.T) {
+	t.Parallel()
+
 	t.Run("the left pane scrolls first", func(t *testing.T) {
+		t.Parallel()
+
 		h := startSideBySide(t, numberedLines(60), "short")
 
 		h.tm.Send(keyPgDn)
@@ -79,6 +87,8 @@ func TestSideBySideScrollsTheFocusedPane(t *testing.T) {
 		assert.Contains(t, screen, "short", "the right pane stays put")
 	})
 	t.Run("switching panes moves scrolling to the right", func(t *testing.T) {
+		t.Parallel()
+
 		h := startSideBySide(t, numberedLines(60), numberedLines(60))
 
 		h.tm.Send(keySwitchPane)
@@ -109,9 +119,13 @@ func tailHunksDiff() string {
 }
 
 func TestHunkKeysReachHunksNearTheEnd(t *testing.T) {
+	t.Parallel()
+
 	fields := []task.Field{{Name: "d", Title: "Diff", Render: task.RenderDiff}}
 	items := []task.Item{{ID: "1", Values: map[string]string{"d": tailHunksDiff(), "repo": "r1"}}}
 	t.Run("forward reaches the last hunk", func(t *testing.T) {
+		t.Parallel()
+
 		h := startWith(t, fields, items)
 
 		h.tm.Type("]]]]")
@@ -121,6 +135,8 @@ func TestHunkKeysReachHunksNearTheEnd(t *testing.T) {
 		assert.Contains(t, screen, "@@ -50,1 +50,1 @@")
 	})
 	t.Run("back from the last hunk returns to the one before", func(t *testing.T) {
+		t.Parallel()
+
 		h := startWith(t, fields, items)
 
 		h.tm.Type("]]]][")

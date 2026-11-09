@@ -67,6 +67,8 @@ func newReport(t *testing.T, ws task.Workspace, annotators []agreement.Annotator
 }
 
 func TestReportNeedsTwoAnnotators(t *testing.T) {
+	t.Parallel()
+
 	ws := workspace(t, singleChoiceSpec(), "1")
 
 	_, err := agreement.NewReport(ws, []agreement.Annotator{annotator(ws, "alice", label("1", "same"))})
@@ -75,6 +77,8 @@ func TestReportNeedsTwoAnnotators(t *testing.T) {
 }
 
 func TestReportComparesLatestEffectiveLabels(t *testing.T) {
+	t.Parallel()
+
 	ws := workspace(t, singleChoiceSpec(), "1", "2", "3", "4")
 	alice := annotator(ws, "alice", label("1", "same"), label("2", "same"), label("3", "distinct"), hold("4"))
 	bob := annotator(ws, "bob",
@@ -106,6 +110,8 @@ func TestReportComparesLatestEffectiveLabels(t *testing.T) {
 }
 
 func TestReportWithThreeAnnotatorsHasNoPair(t *testing.T) {
+	t.Parallel()
+
 	ws := workspace(t, singleChoiceSpec(), "1", "2")
 	alice := annotator(ws, "alice", label("1", "same"), label("2", "same"))
 	bob := annotator(ws, "bob", label("1", "same"), label("2", "distinct"))
@@ -120,6 +126,8 @@ func TestReportWithThreeAnnotatorsHasNoPair(t *testing.T) {
 }
 
 func TestReportMeasuresEachCriterionAndTheDerivedVerdict(t *testing.T) {
+	t.Parallel()
+
 	ws := workspace(t, checklistSpec(), "1", "2", "3")
 	alice := annotator(ws, "alice",
 		answer("1", "concrete", "yes"), answer("1", "scoped", "yes"),

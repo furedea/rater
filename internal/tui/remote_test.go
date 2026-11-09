@@ -31,6 +31,8 @@ func newTestSession(t *testing.T) *task.Session {
 // program. On a served screen that is the server's clipboard, so it is off;
 // the client's own terminal paste still arrives as a paste message.
 func TestRemoteScreenNeverReadsTheHostClipboard(t *testing.T) {
+	t.Parallel()
+
 	s := newTestSession(t)
 
 	assert.True(t, New(s).input.KeyMap.Paste.Enabled(), "a local screen pastes from its own clipboard")
