@@ -16,7 +16,16 @@ import (
 
 var keySwitchPane = tea.KeyPressMsg{Code: 'w', Mod: tea.ModCtrl}
 
+// narrowTerm is below render.MinSideBySideWidth wide and tall enough to show
+// both stacked fields.
+var narrowTerm = termSize{width: 50, height: 40}
+
 func startSideBySide(t *testing.T, a, b string) *harness {
+	t.Helper()
+	return newSideBySide(t, a, b).runOn(t, testTerm)
+}
+
+func newSideBySide(t *testing.T, a, b string) *harness {
 	t.Helper()
 	spec := task.Spec{
 		Name:   "pairs",
@@ -25,7 +34,7 @@ func startSideBySide(t *testing.T, a, b string) *harness {
 		Labels: []task.Label{{Key: 's', Name: "same"}, {Key: 'd', Name: "distinct"}},
 	}
 	items := []task.Item{{ID: "1", Values: map[string]string{"a": a, "b": b}}}
-	return startSpec(t, spec, items)
+	return newHarness(t, spec, items)
 }
 
 // lineWith returns the first screen line containing every part, or "".
@@ -61,9 +70,8 @@ func TestSideBySideShowsFieldsInColumns(t *testing.T) {
 func TestSideBySideFallsBackToStackedWhenNarrow(t *testing.T) {
 	t.Parallel()
 
-	h := startSideBySide(t, "null check missing", "guard user before use")
+	h := newSideBySide(t, "null check missing", "guard user before use").runOn(t, narrowTerm)
 
-	h.tm.Send(tea.WindowSizeMsg{Width: 50, Height: 40})
 	screen := h.finish(t)
 
 	assert.Contains(t, screen, "too narrow for side-by-side")

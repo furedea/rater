@@ -3,6 +3,7 @@ package tui_test
 import (
 	"fmt"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -33,9 +34,12 @@ const finalWait = 3 * time.Second
 
 type harness struct {
 	dir    string
+	model  tui.Model
 	tm     *teatest.TestModel
 	log    *store.Log
 	scheme task.Scheme
+
+	termSize atomic.Pointer[termSize]
 }
 
 func start(t *testing.T) *harness {
@@ -73,6 +77,17 @@ func startWith(t *testing.T, fields []task.Field, items []task.Item) *harness {
 // terminal running the tests.
 func startSpec(t *testing.T, spec task.Spec, items []task.Item) *harness {
 	t.Helper()
+	return newHarness(t, spec, items).runOn(t, testTerm)
+}
+
+// termSize is a terminal's size in cells.
+type termSize struct{ width, height int }
+
+var testTerm = termSize{width: termWidth, height: termHeight}
+
+// newHarness opens a session of spec over items without running it yet.
+func newHarness(t *testing.T, spec task.Spec, items []task.Item) *harness {
+	t.Helper()
 	dir := t.TempDir()
 	tk, err := task.NewTask(spec)
 	require.NoError(t, err)
@@ -85,11 +100,35 @@ func startSpec(t *testing.T, spec task.Spec, items []task.Item) *harness {
 	t.Cleanup(func() { _ = log.Close() })
 	session, err := task.NewSession(ws, prior, log)
 	require.NoError(t, err)
-	tm := teatest.NewTestModel(t, tui.New(session),
-		teatest.WithInitialTermSize(termWidth, termHeight),
-		teatest.WithProgramOptions(tea.WithColorProfile(colorprofile.Ascii)),
+	return &harness{dir: dir, model: tui.New(session), log: log, scheme: tk.Scheme()}
+}
+
+// runOn runs the session on a terminal of the given size.
+func (h *harness) runOn(t *testing.T, size termSize) *harness {
+	t.Helper()
+	h.termSize.Store(&size)
+	h.tm = teatest.NewTestModel(t, h.model,
+		teatest.WithInitialTermSize(size.width, size.height),
+		teatest.WithProgramOptions(tea.WithColorProfile(colorprofile.Ascii), tea.WithFilter(h.reportTermSize)),
 	)
-	return &harness{dir: dir, tm: tm, log: log, scheme: tk.Scheme()}
+	return h
+}
+
+// resize changes the size of the test terminal.
+func (h *harness) resize(size termSize) {
+	h.termSize.Store(&size)
+	h.tm.Send(tea.WindowSizeMsg{Width: size.width, Height: size.height})
+}
+
+// reportTermSize makes every size the program receives the terminal's current
+// one, as a real terminal would answer. bubbletea sends its own size from a
+// goroutine at start, which could otherwise arrive after a resize and undo it.
+func (h *harness) reportTermSize(_ tea.Model, msg tea.Msg) tea.Msg {
+	if _, ok := msg.(tea.WindowSizeMsg); !ok {
+		return msg
+	}
+	size := h.termSize.Load()
+	return tea.WindowSizeMsg{Width: size.width, Height: size.height}
 }
 
 // finish quits and returns the last rendered screen.
@@ -276,7 +315,7 @@ func TestGrowingTheTerminalKeepsTheBodyFilled(t *testing.T) {
 	for range 15 {
 		h.tm.Send(keyPgDn)
 	}
-	h.tm.Send(tea.WindowSizeMsg{Width: 100, Height: 60})
+	h.resize(termSize{width: termWidth, height: 60})
 	screen := h.finish(t)
 
 	assert.Contains(t, screen, "line 60")
