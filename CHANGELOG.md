@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/furedea/rater/compare/v0.1.0...v0.1.1) (2026-11-10)
+
+
+### Bug Fixes
+
+* **tui:** start the narrow-terminal test at its intended size ([#21](https://github.com/furedea/rater/issues/21)) ([6ec288b](https://github.com/furedea/rater/commit/6ec288b94aa8b13291e679cbc4aa38629052a933))
+
 ## 0.1.0 (2026-11-02)
 
 
