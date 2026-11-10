@@ -33,6 +33,7 @@ const finalWait = 3 * time.Second
 
 type harness struct {
 	dir    string
+	model  tui.Model
 	tm     *teatest.TestModel
 	log    *store.Log
 	scheme task.Scheme
@@ -73,6 +74,17 @@ func startWith(t *testing.T, fields []task.Field, items []task.Item) *harness {
 // terminal running the tests.
 func startSpec(t *testing.T, spec task.Spec, items []task.Item) *harness {
 	t.Helper()
+	return newHarness(t, spec, items).runOn(t, testTerm)
+}
+
+// termSize is a terminal's size in cells.
+type termSize struct{ width, height int }
+
+var testTerm = termSize{width: termWidth, height: termHeight}
+
+// newHarness opens a session of spec over items without running it yet.
+func newHarness(t *testing.T, spec task.Spec, items []task.Item) *harness {
+	t.Helper()
 	dir := t.TempDir()
 	tk, err := task.NewTask(spec)
 	require.NoError(t, err)
@@ -85,11 +97,19 @@ func startSpec(t *testing.T, spec task.Spec, items []task.Item) *harness {
 	t.Cleanup(func() { _ = log.Close() })
 	session, err := task.NewSession(ws, prior, log)
 	require.NoError(t, err)
-	tm := teatest.NewTestModel(t, tui.New(session),
-		teatest.WithInitialTermSize(termWidth, termHeight),
+	return &harness{dir: dir, model: tui.New(session), log: log, scheme: tk.Scheme()}
+}
+
+// runOn runs the session on a terminal of the given size from the first frame.
+// A size sent after start races with the size bubbletea sends itself at start,
+// so a test that needs a particular size must start with it.
+func (h *harness) runOn(t *testing.T, size termSize) *harness {
+	t.Helper()
+	h.tm = teatest.NewTestModel(t, h.model,
+		teatest.WithInitialTermSize(size.width, size.height),
 		teatest.WithProgramOptions(tea.WithColorProfile(colorprofile.Ascii)),
 	)
-	return &harness{dir: dir, tm: tm, log: log, scheme: tk.Scheme()}
+	return h
 }
 
 // finish quits and returns the last rendered screen.
