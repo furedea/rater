@@ -296,6 +296,11 @@ func TestGrowingTheTerminalKeepsTheBodyFilled(t *testing.T) {
 	for range 15 {
 		h.tm.Send(keyPgDn)
 	}
+	// Grow only after the scrolled frame is drawn, so the size bubbletea sends
+	// at start cannot arrive after the resize and undo it.
+	teatest.WaitFor(t, h.tm.Output(), func(out []byte) bool {
+		return strings.Contains(string(out), "line 60")
+	}, teatest.WithDuration(finalWait))
 	h.tm.Send(tea.WindowSizeMsg{Width: 100, Height: 60})
 	screen := h.finish(t)
 
