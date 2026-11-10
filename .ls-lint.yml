@@ -2,6 +2,7 @@ ls:
   .dir: regex:\.?[a-z0-9]+(-[a-z0-9]+)*
   <<: &files
     .md: regex:[a-z0-9]*([._][a-z0-9]+)* | regex:(README|CONTRIBUTING|CHANGELOG|AGENTS|CLAUDE|SKILL)
+    .json: regex:[a-z0-9]*([._][a-z0-9]+)* | regex:\.?release-please-(config|manifest)
     .*: regex:[a-z0-9]*([._][a-z0-9]+)*
   # Go package directories are identifiers, so they use lowercase letters and digits only.
   # A nested block replaces the root rules, so it re-merges the file rules.
@@ -14,8 +15,6 @@ ignore:
   - .direnv
   - result
   - result-*
-  - .release-please-manifest.json
-  - release-please-config.json
   - "{.venv,.uv-cache,.ruff_cache,.pytest_cache,.ipynb_checkpoints,__pycache__,node_modules,target}"
   - "**/{.venv,.uv-cache,.ruff_cache,.pytest_cache,.ipynb_checkpoints,__pycache__,node_modules,target}"
   - docs/logs

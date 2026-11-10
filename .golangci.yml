@@ -17,6 +17,9 @@ linters:
       min-complexity: 15
     gocyclo:
       min-complexity: 10
+    nolintlint:
+      require-explanation: true
+      require-specific: true
     revive:
       rules:
         - name: package-comments
