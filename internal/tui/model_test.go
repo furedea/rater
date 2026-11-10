@@ -3,6 +3,7 @@ package tui_test
 import (
 	"fmt"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -35,6 +36,7 @@ type harness struct {
 	dir    string
 	model  tui.Model
 	tm     *teatest.TestModel
+	sizes  atomic.Int32
 	log    *store.Log
 	scheme task.Scheme
 }
@@ -107,9 +109,28 @@ func (h *harness) runOn(t *testing.T, size termSize) *harness {
 	t.Helper()
 	h.tm = teatest.NewTestModel(t, h.model,
 		teatest.WithInitialTermSize(size.width, size.height),
-		teatest.WithProgramOptions(tea.WithColorProfile(colorprofile.Ascii)),
+		teatest.WithProgramOptions(tea.WithColorProfile(colorprofile.Ascii), tea.WithFilter(h.countSizes)),
 	)
 	return h
+}
+
+// startupSizes is how many sizes arrive on their own at start: the one teatest
+// sends and the one bubbletea sends from a goroutine.
+const startupSizes = 2
+
+func (h *harness) countSizes(_ tea.Model, msg tea.Msg) tea.Msg {
+	if _, ok := msg.(tea.WindowSizeMsg); ok {
+		h.sizes.Add(1)
+	}
+	return msg
+}
+
+// waitForStartupSize returns once the start-up sizes have been delivered, so a
+// size the test sends afterwards cannot be overwritten by a late one.
+func (h *harness) waitForStartupSize(t *testing.T) {
+	t.Helper()
+	require.Eventually(t, func() bool { return h.sizes.Load() >= startupSizes },
+		finalWait, time.Millisecond, "the start-up sizes were not delivered")
 }
 
 // finish quits and returns the last rendered screen.
@@ -293,14 +314,10 @@ func TestGrowingTheTerminalKeepsTheBodyFilled(t *testing.T) {
 
 	h := startLongBody(t)
 
+	h.waitForStartupSize(t)
 	for range 15 {
 		h.tm.Send(keyPgDn)
 	}
-	// Grow only after the scrolled frame is drawn, so the size bubbletea sends
-	// at start cannot arrive after the resize and undo it.
-	teatest.WaitFor(t, h.tm.Output(), func(out []byte) bool {
-		return strings.Contains(string(out), "line 60")
-	}, teatest.WithDuration(finalWait))
 	h.tm.Send(tea.WindowSizeMsg{Width: 100, Height: 60})
 	screen := h.finish(t)
 
